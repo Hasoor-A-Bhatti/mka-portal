@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowUpRight } from "lucide-react";
 import { DEPARTMENTS } from "@/lib/departments";
 import { getSession } from "@/lib/session";
@@ -18,7 +19,10 @@ function today() {
 }
 
 export default async function OverviewPage() {
-  const { supabase, canAccess, firstName } = await getSession();
+  const { supabase, canAccess, firstName, soleDepartment } = await getSession();
+
+  // Someone with a single department goes straight to it.
+  if (soleDepartment) redirect(`/${soleDepartment.slug}`);
 
   const accessible = DEPARTMENTS.filter((d) => canAccess(d.slug));
 

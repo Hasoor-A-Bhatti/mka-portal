@@ -18,10 +18,16 @@ export default async function LoginPage({
       <div className="login-ring" aria-hidden />
 
       <section className="login-brand rise">
-        <h1 className="wordmark" aria-label="MKA Delegations">
-          MKA
-          <span className="wordmark-sub">Delegations</span>
-        </h1>
+        <div className="login-mark">
+          <div className="emblem" role="img" aria-label="MKA emblem">
+            <span className="emblem-orbit" aria-hidden />
+            <span className="emblem-art" aria-hidden />
+          </div>
+          <h1 className="wordmark" aria-label="MKA Portal">
+            MKA
+            <span className="wordmark-sub">Portal</span>
+          </h1>
+        </div>
         <div className="login-depts" aria-hidden>
           {DEPARTMENTS.map((d) => (
             <span

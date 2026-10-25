@@ -49,35 +49,39 @@ export default async function ActivityPage({
           <div>
             <span className="eyebrow">Records</span>
             <h1>Activity log</h1>
-            <p>Every add, edit and removal across your departments, with who made it.</p>
+            <p>
+              Every add, edit and removal {departments.length === 1 ? `in ${departments[0].name}` : "across your departments"}, with who made it.
+            </p>
           </div>
         </div>
       </header>
 
       <section className="panel glass rise" style={vars({ "--i": "1" })}>
-        <div className="chips" aria-label="Filter by department">
-          <Link href="/activity" className="chip" aria-current={!current ? "true" : undefined}>
-            All departments
-          </Link>
-          {departments.map((d) => (
-            <Link
-              key={d.slug}
-              href={`/activity?dept=${d.slug}`}
-              className="chip"
-              aria-current={current?.slug === d.slug ? "true" : undefined}
-              style={vars({ "--accent": d.accent })}
-            >
-              {d.short}
+        {departments.length > 1 && (
+          <div className="chips" aria-label="Filter by department">
+            <Link href="/activity" className="chip" aria-current={!current ? "true" : undefined}>
+              All departments
             </Link>
-          ))}
-        </div>
+            {departments.map((d) => (
+              <Link
+                key={d.slug}
+                href={`/activity?dept=${d.slug}`}
+                className="chip"
+                aria-current={current?.slug === d.slug ? "true" : undefined}
+                style={vars({ "--accent": d.accent })}
+              >
+                {d.short}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {error ? (
           <p className="form-error" role="alert">
             Couldn't load the activity log: {error.message}
           </p>
         ) : (
-          <ActivityFeed entries={entries.slice(0, PAGE_SIZE)} showDepartment={!current} />
+          <ActivityFeed entries={entries.slice(0, PAGE_SIZE)} showDepartment={!current && departments.length > 1} />
         )}
 
         {(pageNo > 1 || hasNext) && (

@@ -479,13 +479,84 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   to { background-position: 100% 50%; }
 }
 
-/* "Delegations" under MKA: same gradient style, smaller */
+/* Emblem and wordmark stacked; the emblem centres over "MKA" */
+.login-mark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Logo medallion: the emblem keeps its black and white, with a passing gold sheen */
+.emblem {
+  position: relative;
+  width: clamp(150px, 15vw, 210px);
+  aspect-ratio: 1;
+  margin-bottom: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #fff 0%, #fbf9ff 55%, var(--purple-50) 100%);
+  box-shadow:
+    0 0 0 1px var(--stroke),
+    inset 0 2px 0 #fff,
+    inset 0 -6px 14px rgba(59, 22, 140, 0.08),
+    0 24px 44px -16px rgba(40, 14, 100, 0.4);
+  animation: float 7s ease-in-out infinite;
+}
+
+/* Purple and gold rim */
+.emblem::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 3px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--gold-light), var(--gold) 30%, var(--purple-500) 60%, var(--purple-800) 80%, var(--gold));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+.emblem-art {
+  position: absolute;
+  inset: 9%;
+  background:
+    linear-gradient(110deg, transparent 42%, rgba(243, 214, 140, 0.9) 50%, transparent 58%) 0 0 / 300% 100% no-repeat,
+    #000;
+  mask: url("/mka-logo.png") center / contain no-repeat;
+  -webkit-mask: url("/mka-logo.png") center / contain no-repeat;
+  animation: sheen 6s ease-in-out infinite;
+}
+
+/* Thin orbit that turns slowly around the medallion */
+.emblem-orbit {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 20%, rgba(212, 166, 63, 0.75) 32%, transparent 45% 70%, rgba(80, 36, 168, 0.5) 82%, transparent 95%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  animation: spin 14s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+
+@keyframes sheen {
+  0%, 55% { background-position: 120% 0, 0 0; }
+  100% { background-position: -20% 0, 0 0; }
+}
+
+/* "Portal" under MKA: same gradient style, smaller */
 .wordmark-sub {
   display: block;
   margin-top: 0.12em;
   font-size: 0.36em;
   line-height: 1;
   letter-spacing: -0.04em;
+  text-align: center;
 }
 
 .login-depts {
@@ -560,6 +631,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .login-light {
     left: -20%;
     top: 20%;
+  }
+  .emblem {
+    width: 120px;
+    margin-bottom: 24px;
   }
   .login-ring {
     width: 360px;

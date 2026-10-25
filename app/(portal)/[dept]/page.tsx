@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDepartment } from "@/lib/departments";
-import { getSession } from "@/lib/session";
+import { getSession, ROLE_LABELS } from "@/lib/session";
 import { AUDIT_SELECT, type AuditEntry } from "@/lib/audit";
 import { ActivityFeed } from "@/components/activity-feed";
 import { RecordsPanel, type RecordRow } from "@/components/records-panel";
@@ -22,15 +22,15 @@ export default async function DepartmentPage({ params }: Params) {
   const dept = getDepartment(slug);
   if (!dept) notFound();
 
-  const { supabase, canAccess, isManager } = await getSession();
+  const { supabase, canAccess, isManager, roleIn, isAdmin, soleDepartment } = await getSession();
 
   if (!canAccess(slug)) {
     return (
       <section className="notice glass">
         <h1>{dept.name} isn't on your account</h1>
         <p>Ask an admin to add you to this department if you need it.</p>
-        <Link href="/" className="btn">
-          Back to overview
+        <Link href={soleDepartment ? `/${soleDepartment.slug}` : "/"} className="btn">
+          {soleDepartment ? `Back to ${soleDepartment.name}` : "Back to overview"}
         </Link>
       </section>
     );
@@ -69,7 +69,7 @@ export default async function DepartmentPage({ params }: Params) {
             <Icon size={28} />
           </span>
           <div>
-            <span className="eyebrow">Department</span>
+            <span className="eyebrow">{isAdmin ? "Administrator" : ROLE_LABELS[roleIn(slug)!]}</span>
             <h1>{dept.name}</h1>
             <p>{dept.description}</p>
           </div>

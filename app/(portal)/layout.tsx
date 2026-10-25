@@ -7,18 +7,16 @@ import { Crumbs, Nav } from "@/components/nav";
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   const slugs = session.departments.map((d) => d.slug);
-  const roleLabel = session.isAdmin
-    ? "Administrator"
-    : `${slugs.length} department${slugs.length === 1 ? "" : "s"}`;
+  const home = session.soleDepartment ? `/${session.soleDepartment.slug}` : "/";
 
   return (
     <div className="shell">
       <aside className="sidebar glass">
-        <Link href="/" className="brand">
+        <Link href={home} className="brand">
           <span className="brand-mark">MKA</span>
           <span className="brand-name">
-            Delegations
-            <small>Operations portal</small>
+            MKA Portal
+            <small>{session.soleDepartment?.name ?? "Operations"}</small>
           </span>
         </Link>
         <Nav slugs={slugs} variant="sidebar" />
@@ -27,7 +25,7 @@ export default async function PortalLayout({ children }: { children: React.React
 
       <div className="main">
         <header className="topbar glass glass-strong">
-          <Link href="/" className="brand mobile-brand">
+          <Link href={home} className="brand mobile-brand">
             <span className="brand-mark">MKA</span>
           </Link>
           <Crumbs slugs={slugs} />
@@ -35,7 +33,7 @@ export default async function PortalLayout({ children }: { children: React.React
           <div className="user">
             <div className="salam">
               <strong>Salam {session.fullName}</strong>
-              <span>{roleLabel}</span>
+              <span>{session.roleLabel}</span>
             </div>
             <span className="avatar" aria-hidden>
               {initials(session.fullName)}

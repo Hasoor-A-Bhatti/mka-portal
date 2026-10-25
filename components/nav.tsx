@@ -18,18 +18,22 @@ export function Nav({ slugs, variant }: Props) {
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   const departments = slugs.map(getDepartment).filter((d) => d !== undefined);
+  // One department: no overview and nothing to switch between.
+  const single = departments.length === 1;
 
   const links = (
     <>
-      <Link href="/" className="nav-link" aria-current={isCurrent("/") ? "page" : undefined}>
-        <span className="nav-dot">
-          <LayoutGrid size={16} />
-        </span>
-        Overview
-      </Link>
+      {!single && (
+        <Link href="/" className="nav-link" aria-current={isCurrent("/") ? "page" : undefined}>
+          <span className="nav-dot">
+            <LayoutGrid size={16} />
+          </span>
+          Overview
+        </Link>
+      )}
 
       {variant === "sidebar" && departments.length > 0 && (
-        <div className="nav-group">Departments</div>
+        <div className="nav-group">{single ? "Your department" : "Departments"}</div>
       )}
 
       {departments.map((d) => {
@@ -51,18 +55,21 @@ export function Nav({ slugs, variant }: Props) {
         );
       })}
 
-      {variant === "sidebar" && <div className="nav-group">Records</div>}
-
-      <Link
-        href="/activity"
-        className="nav-link"
-        aria-current={isCurrent("/activity") ? "page" : undefined}
-      >
-        <span className="nav-dot">
-          <History size={16} />
-        </span>
-        Activity log
-      </Link>
+      {departments.length > 0 && (
+        <>
+          {variant === "sidebar" && <div className="nav-group">Records</div>}
+          <Link
+            href="/activity"
+            className="nav-link"
+            aria-current={isCurrent("/activity") ? "page" : undefined}
+          >
+            <span className="nav-dot">
+              <History size={16} />
+            </span>
+            Activity log
+          </Link>
+        </>
+      )}
     </>
   );
 

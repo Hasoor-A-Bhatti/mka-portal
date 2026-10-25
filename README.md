@@ -1,10 +1,10 @@
 # MKA Portal
 
-Internal portal for MKA Delegations and its five sub-departments: Delegations, Fleet, Jaidat, Special Arrangements and Storage.
+MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Jaidat, Special Arrangements and Storage.
 
 - Next.js 15 (App Router) + TypeScript, ready for Vercel
 - Supabase Auth for logins (sessions held in secure server-side cookies)
-- Each user sees only the departments they've been given
+- Each user sees only the departments they've been given. Someone with one department lands straight on it; someone with several can switch between them; administrators see everything
 - Every record stores `created_by`, `created_at`, `updated_by`, `updated_at`, set **by the database** from the logged-in user
 - Every add, edit and removal is written to an `audit_log` table with before/after data
 - "Salam [name]" in the top right, from the user's profile
@@ -12,16 +12,18 @@ Internal portal for MKA Delegations and its five sub-departments: Delegations, F
 ## 1. Set up Supabase (10 minutes)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. **SQL Editor** → New query → paste all of `supabase/migrations/0001_mka_portal.sql` → **Run**.
+2. **SQL Editor** → New query → paste all of `supabase/migrations/0001_mka_portal.sql` → **Run**. Then do the same with `supabase/migrations/0002_department_privacy.sql`.
 3. **Authentication → Sign In / Providers → Email**: turn **off** "Allow new users to sign up". Only admins should create accounts.
 4. **Authentication → Users → Add user → Create new user**: enter email and password, tick "Auto confirm user".
 5. Open `supabase/grant_access.sql`, edit the emails and names, and run it in the SQL Editor. This sets each person's display name ("Salam …"), makes you an admin, and gives others their departments.
 
 | Role | Can do |
 | --- | --- |
-| `member` | View, add and edit records in that department |
-| `manager` | All of the above, plus remove records |
-| admin (`profiles.is_admin`) | Everything in every department |
+| `member` (Member) | View, add and edit records in their department(s) |
+| `manager` (Department admin) | All of the above, plus remove records |
+| `profiles.is_admin` (Administrator) | Everything in every department |
+
+People only ever see the departments they've been given, and the names of colleagues who share a department with them. This is enforced by the database, not just hidden in the app.
 
 ## 2. Run it locally
 

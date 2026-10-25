@@ -17,7 +17,7 @@ const body = Figtree({
 
 export const metadata: Metadata = {
   title: { default: "MKA Portal", template: "%s | MKA Portal" },
-  description: "MKA Delegations operations portal",
+  description: "MKA Portal: operations for Delegations, Fleet, Jaidat, Special Arrangements and Storage",
   robots: { index: false, follow: false },
 };
 
