@@ -629,17 +629,31 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     padding-top: 56px;
   }
   .login-light {
-    left: -20%;
+    left: 50%;
     top: 20%;
+    translate: -50% -50%;
+  }
+  /* Centre the logo, "MKA Portal" and the department tags */
+  .login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .login-depts {
+    justify-content: center;
   }
   .emblem {
     width: 120px;
     margin-bottom: 24px;
   }
+  /* Ring sits behind the logo, centred on it */
   .login-ring {
     width: 360px;
     height: 360px;
-    top: 120px;
+    left: 50%;
+    top: 60px;
+    translate: -50% -50%;
   }
   .login-card {
     padding: 28px;
