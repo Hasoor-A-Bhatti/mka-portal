@@ -12,7 +12,7 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
 ## 1. Set up Supabase (10 minutes)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. **SQL Editor** → New query → paste all of `supabase/migrations/0001_mka_portal.sql` → **Run**. Then do the same with `supabase/migrations/0002_department_privacy.sql`.
+2. **SQL Editor** → New query → paste all of `supabase/migrations/0001_mka_portal.sql` → **Run**. Then do the same with `supabase/migrations/0002_department_privacy.sql` and `supabase/migrations/0003_fleet.sql` (in that order).
 3. **Authentication → Sign In / Providers → Email**: turn **off** "Allow new users to sign up". Only admins should create accounts.
 4. **Authentication → Users → Add user → Create new user**: enter email and password, tick "Auto confirm user".
 5. Open `supabase/grant_access.sql`, edit the emails and names, and run it in the SQL Editor. This sets each person's display name ("Salam …"), makes you an admin, and gives others their departments.

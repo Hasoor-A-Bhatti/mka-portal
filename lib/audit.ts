@@ -17,12 +17,23 @@ export const AUDIT_SELECT =
 
 const SYSTEM_COLUMNS = new Set(["id", "created_at", "created_by", "updated_at", "updated_by"]);
 
+/** Tables that belong to a department but aren't its main records. */
+const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unknown>) => string }> = {
+  fleet_mileage_logs: { noun: "a mileage reading", title: (d) => (d.reading != null ? `${Number(d.reading).toLocaleString("en-GB")} mi` : "") },
+  fleet_maintenance: { noun: "maintenance task", title: (d) => String(d.description ?? "") },
+  fleet_incidents: { noun: "an incident", title: (d) => String(d.incident_type ?? "") },
+  fleet_drivers: { noun: "driver", title: (d) => String(d.full_name ?? "") },
+  fleet_vehicle_drivers: { noun: "a driver's access to a vehicle", title: () => "" },
+  fleet_files: { noun: "a document", title: (d) => String(d.file_name ?? "") },
+};
+
 /** Turns an audit row into a readable line: who, did what, to which record. */
 export function describe(entry: AuditEntry) {
+  const sub = SUB_TABLES[entry.table_name];
   const dept = getDepartmentByTable(entry.table_name) ?? getDepartment(entry.department);
   const data = entry.new_data ?? entry.old_data ?? {};
-  const noun = dept?.noun ?? "record";
-  const title = dept ? String(data[dept.titleField] ?? "") : "";
+  const noun = sub?.noun ?? dept?.noun ?? "record";
+  const title = sub ? sub.title(data) : dept ? String(data[dept.titleField] ?? "") : "";
   const who = entry.actor?.full_name ?? "Someone";
 
   const verb =

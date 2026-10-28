@@ -86,16 +86,18 @@ export const DEPARTMENTS: Department[] = [
     plural: "vehicles",
     titleField: "registration",
     statusField: "status",
-    statuses: ["Available", "Assigned", "In service", "Off road"],
-    focus: { label: "available now", statuses: ["Available"] },
+    // Fleet has its own pages (app/(portal)/fleet); these fields feed the overview and activity log.
+    statuses: ["Active", "Damaged", "Off road", "Sold"],
+    focus: { label: "active", statuses: ["Active"] },
     orderBy: "registration",
     fields: [
       { name: "registration", label: "Registration", type: "text", required: true, inTable: true, placeholder: "e.g. AB12 CDE" },
-      { name: "make_model", label: "Make and model", type: "text", inTable: true },
-      { name: "vehicle_type", label: "Type", type: "select", options: ["Car", "MPV", "Minibus", "Coach", "Van", "Other"], inTable: true },
-      { name: "seats", label: "Seats", type: "number" },
-      { name: "driver", label: "Driver", type: "text", inTable: true },
-      { name: "status", label: "Status", type: "select", required: true, options: ["Available", "Assigned", "In service", "Off road"] },
+      { name: "make_model", label: "Name", type: "text", inTable: true },
+      { name: "vehicle_type", label: "Type", type: "select", options: ["Car", "Light commercial", "MPV", "Minibus", "Van", "Other"], inTable: true },
+      { name: "year", label: "Year first registered", type: "number" },
+      { name: "mileage", label: "Mileage", type: "number" },
+      { name: "key_holder_id", label: "Key holder", type: "text" },
+      { name: "status", label: "Status", type: "select", required: true, options: ["Active", "Damaged", "Off road", "Sold"] },
       { name: "notes", label: "Notes", type: "textarea", wide: true },
     ],
   },
@@ -189,9 +191,9 @@ const TONES: Record<string, string> = {
   // Moving
   Assigned: "#3f51c9", "In progress": "#3f51c9", Planned: "#3f51c9", Reserved: "#3f51c9",
   // Needs attention
-  "Low stock": "#9a6600", "Under maintenance": "#9a6600", "In service": "#9a6600", Requested: "#9a6600",
+  "Low stock": "#9a6600", "Under maintenance": "#9a6600", "In service": "#9a6600", Requested: "#9a6600", "Off road": "#9a6600",
   // Stopped
-  Cancelled: "#c43a3a", "Out of stock": "#c43a3a", "Off road": "#c43a3a", Disposed: "#c43a3a",
+  Cancelled: "#c43a3a", "Out of stock": "#c43a3a", Disposed: "#c43a3a", Damaged: "#c43a3a", Sold: "#6b6383",
   // Finished
   Departed: "#6b6383", Completed: "#6b6383", Vacant: "#6b6383",
 };
