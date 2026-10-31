@@ -7,6 +7,9 @@ import { AUDIT_SELECT, type AuditEntry } from "@/lib/audit";
 import { ActivityFeed } from "@/components/activity-feed";
 import { RecordsPanel, type RecordRow } from "@/components/records-panel";
 import { vars } from "@/lib/css";
+import { DelegationsCalendar } from "@/components/delegations-calendar";
+import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google-calendar";
+import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,17 @@ export default async function DepartmentPage({ params }: Params) {
       </section>
     );
   }
+
+  const showCalendar = slug === "delegations";
+  const today = londonDate(new Date());
+
+  // Delegations: read the calendar first and bring the records in step with it,
+  // so the table below already shows the result.
+  const calendar: CalendarResult | null = showCalendar ? await getCalendarEvents() : null;
+  const sync: SyncResult | null =
+    calendar && !calendar.error && !calendar.notConfigured && calendar.from
+      ? await syncDelegations(supabase, calendar.events, calendar.from, today)
+      : null;
 
   const [{ data: rows, error }, { data: activity }] = await Promise.all([
     supabase
@@ -99,6 +113,27 @@ export default async function DepartmentPage({ params }: Params) {
       {error && (
         <p className="form-error" role="alert">
           Couldn't load {dept.plural}: {error.message}. Check the database setup in the README.
+        </p>
+      )}
+
+      {calendar && (
+        <DelegationsCalendar
+          events={calendar.events}
+          today={today}
+          error={calendar.error}
+          notConfigured={calendar.notConfigured}
+        />
+      )}
+
+      {sync?.needsMigration && (
+        <p className="form-error" role="alert">
+          Delegations can't be created from the calendar yet: run supabase/migrations/0004_delegations_calendar.sql in the
+          Supabase SQL Editor.
+        </p>
+      )}
+      {sync?.error && (
+        <p className="form-error" role="alert">
+          Couldn't update delegations from the calendar: {sync.error}
         </p>
       )}
 

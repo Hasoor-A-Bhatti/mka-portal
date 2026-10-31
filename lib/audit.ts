@@ -1,4 +1,5 @@
 import { getDepartment, getDepartmentByTable } from "@/lib/departments";
+import { formatDate } from "@/lib/format";
 
 export type AuditEntry = {
   id: number;
@@ -25,6 +26,14 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
   fleet_drivers: { noun: "driver", title: (d) => String(d.full_name ?? "") },
   fleet_vehicle_drivers: { noun: "a driver's access to a vehicle", title: () => "" },
   fleet_files: { noun: "a document", title: (d) => String(d.file_name ?? "") },
+  delegation_files: { noun: "an itinerary", title: (d) => String(d.file_name ?? "") },
+  delegation_stays: { noun: "accommodation", title: (d) => String(d.venue ?? "") },
+  delegation_transport: { noun: "transport", title: (d) => [d.transport_type, d.vehicle].filter(Boolean).join(", ") },
+  delegation_meals: {
+    noun: "a meal",
+    title: (d) => (d.day ? `${String(d.meal ?? "")} on ${formatDate(d.day)}`.trim() : ""),
+  },
+  delegation_mulaqats: { noun: "a mulaqat", title: (d) => (d.mulaqat_date ? formatDate(d.mulaqat_date) : "") },
 };
 
 /** Turns an audit row into a readable line: who, did what, to which record. */

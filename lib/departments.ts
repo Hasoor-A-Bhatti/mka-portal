@@ -45,6 +45,10 @@ export type Department = {
   /** Default sort column for the records table. */
   orderBy: string;
   fields: Field[];
+  /** Records can come from the Google Calendar. These fields are kept in step with it. */
+  calendarSync?: { lockedFields: string[] };
+  /** Clicking a record opens its own page (/<slug>/<id>) instead of the edit form. */
+  detailPages?: boolean;
 };
 
 export const DEPARTMENTS: Department[] = [
@@ -66,13 +70,16 @@ export const DEPARTMENTS: Department[] = [
     fields: [
       { name: "name", label: "Delegation", type: "text", required: true, inTable: true, placeholder: "e.g. Ghana delegation" },
       { name: "country", label: "Country", type: "text", inTable: true },
-      { name: "head_of_delegation", label: "Head of delegation", type: "text", inTable: true },
-      { name: "members", label: "Members", type: "number" },
+      { name: "head_of_delegation", label: "Head of delegation", type: "text" },
+      { name: "members", label: "Members", type: "number", inTable: true },
+      { name: "venue", label: "Venue", type: "text", inTable: true },
       { name: "arrival_date", label: "Arrives", type: "date", inTable: true },
-      { name: "departure_date", label: "Departs", type: "date" },
+      { name: "departure_date", label: "Departs", type: "date", inTable: true },
       { name: "status", label: "Status", type: "select", required: true, options: ["Planned", "Confirmed", "Arrived", "Departed", "Cancelled"] },
       { name: "notes", label: "Notes", type: "textarea", wide: true },
     ],
+    calendarSync: { lockedFields: ["name", "arrival_date", "departure_date"] },
+    detailPages: true,
   },
   {
     slug: "fleet",

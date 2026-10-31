@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Plus, Search, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { getDepartment, statusTone, type Department, type Field } from "@/lib/departments";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { deleteRecord, saveRecord, type SaveState } from "@/app/(portal)/[dept]/actions";
@@ -51,7 +52,10 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
     return () => clearTimeout(t);
   }, [toast]);
 
+  const router = useRouter();
   const open = (row: RecordRow | null) => setEditing({ row, key: Date.now() });
+  // Rows open their own page when the department has one.
+  const view = (row: RecordRow) => (dept.detailPages ? router.push(`/${slug}/${row.id}`) : open(row));
 
   return (
     <section className="panel glass">
@@ -111,7 +115,7 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
         </div>
       ) : (
         <div className="table-wrap">
-          <table className="records">
+          <table className="records cards-mobile">
             <thead>
               <tr>
                 {columns.map((c) => (
@@ -119,6 +123,7 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                 ))}
                 <th>Status</th>
                 <th>Last edited</th>
+                {dept.detailPages && <th aria-hidden />}
               </tr>
             </thead>
             <tbody>
@@ -126,25 +131,38 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                 <tr
                   key={r.id}
                   tabIndex={0}
-                  onClick={() => open(r)}
+                  onClick={() => view(r)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      open(r);
+                      view(r);
                     }
                   }}
-                  aria-label={`Edit ${String(r[dept.titleField] ?? dept.noun)}`}
+                  aria-label={`${dept.detailPages ? "Open" : "Edit"} ${String(r[dept.titleField] ?? dept.noun)}`}
                 >
                   {columns.map((c) => (
-                    <td key={c.name}>{renderCell(c, r[c.name])}</td>
+                    <td key={c.name} data-label={c.label}>
+                      {renderCell(c, r[c.name])}
+                      {c.name === dept.titleField && dept.calendarSync && fromCalendar(r) && (
+                        <span className="cal-badge" title="Created from the Google Calendar">
+                          <CalendarDays size={12} />
+                          <span className="sr-only">From the Google Calendar</span>
+                        </span>
+                      )}
+                    </td>
                   ))}
-                  <td>
+                  <td data-label="Status">
                     <StatusPill value={r[dept.statusField]} />
                   </td>
-                  <td className="who">
+                  <td className="who" data-label="Last edited">
                     {r.editor?.full_name ?? r.creator?.full_name ?? "Unknown"}
                     <small>{formatDateTime(r.updated_at)}</small>
                   </td>
+                  {dept.detailPages && (
+                    <td className="row-go" aria-hidden>
+                      <ChevronRight size={16} />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -217,6 +235,8 @@ function RecordDialog({
   };
 
   const error = state.error ?? deleteError;
+  const synced = Boolean(dept.calendarSync && row && fromCalendar(row));
+  const locked = new Set(synced ? dept.calendarSync!.lockedFields : []);
 
   return (
     <dialog
@@ -249,13 +269,22 @@ function RecordDialog({
         </div>
 
         <div className="sheet-body">
+          {synced && (
+            <div className="sync-note wide">
+              <CalendarDays size={18} />
+              <p>
+                <strong>From the Google Calendar.</strong> The name and dates follow the calendar, so change them there.
+                Status updates itself from the dates, unless you set it to Cancelled.
+              </p>
+            </div>
+          )}
           {dept.fields.map((f) => (
             <div key={f.name} className={`field ${f.wide || f.type === "textarea" ? "wide" : ""}`}>
               <label htmlFor={`f-${f.name}`}>
                 {f.label}
                 {f.required && <span className="req" aria-hidden>*</span>}
               </label>
-              <Control field={f} value={row ? row[f.name] : undefined} dept={dept} />
+              <Control field={f} value={row ? row[f.name] : undefined} dept={dept} locked={locked.has(f.name)} />
             </div>
           ))}
           {error && (
@@ -285,9 +314,10 @@ function RecordDialog({
   );
 }
 
-function Control({ field, value, dept }: { field: Field; value: unknown; dept: Department }) {
+function Control({ field, value, dept, locked }: { field: Field; value: unknown; dept: Department; locked?: boolean }) {
   const id = `f-${field.name}`;
-  const common = { id, name: field.name, required: field.required };
+  // Read-only rather than disabled, so the value is still sent when the form saves.
+  const common = { id, name: field.name, required: field.required, readOnly: locked || undefined };
   const str = value === null || value === undefined ? "" : String(value);
 
   switch (field.type) {
@@ -328,6 +358,10 @@ function renderCell(field: Field, value: unknown) {
   if (value === null || value === undefined || value === "") return <span style={{ color: "var(--muted)" }}>—</span>;
   if (field.type === "date") return formatDate(value);
   return String(value);
+}
+
+function fromCalendar(row: RecordRow) {
+  return Array.isArray(row.calendar_event_ids) && row.calendar_event_ids.length > 0;
 }
 
 function capitalise(s: string) {
