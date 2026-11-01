@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /visit (AeK) and /region (Region Guidance) open from private links, without signing in.
+const PUBLIC_PATHS = ["/login", "/auth", "/visit", "/region"];
 
 /** Refreshes the session cookie on every request and guards private pages. */
 export async function updateSession(request: NextRequest) {

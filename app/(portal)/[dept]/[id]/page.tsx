@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { ArrowLeft, CalendarDays, MapPin, Phone, UserRound, Users } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { getDepartment, statusTone } from "@/lib/departments";
@@ -12,6 +13,12 @@ import {
   shortDay,
   stayDays,
   hhmm,
+  aekTravelLine,
+  driversReceived,
+  toShareLink,
+  type Driver,
+  type AekLink,
+  type AekUpdate,
   type Delegation,
   type DelegationFile,
   type Meal,
@@ -22,7 +29,8 @@ import {
 } from "@/lib/delegations";
 import { londonDate } from "@/lib/google-calendar";
 import { vars } from "@/lib/css";
-import { InfoPanel, type PlanSummary } from "@/components/delegations/info-panel";
+import { InfoPanel, type AekState, type PlanSummary, type RegionState } from "@/components/delegations/info-panel";
+import { formatDateTime } from "@/lib/format";
 import { StaysPanel } from "@/components/delegations/stays-panel";
 import { TransportPanel } from "@/components/delegations/transport-panel";
 import { MealsPanel } from "@/components/delegations/meals-panel";
@@ -80,7 +88,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   if (!row) notFound();
   const d = row as unknown as Delegation;
 
-  const [filesRes, staysRes, transportRes, mealsRes, mulaqatRes, teamRes] = await Promise.all([
+  const [filesRes, staysRes, transportRes, mealsRes, mulaqatRes, teamRes, linkRes, aekRes, regionLinkRes, driversRes] = await Promise.all([
     supabase
       .from("delegation_files")
       .select("*, creator:profiles!delegation_files_created_by_fkey(full_name)")
@@ -91,6 +99,26 @@ export default async function DelegationPage({ params, searchParams }: Props) {
     supabase.from("delegation_meals").select("*").eq("delegation_id", id),
     supabase.from("delegation_mulaqats").select("*").eq("delegation_id", id).order("mulaqat_date"),
     supabase.rpc("delegations_team"),
+    // Missing tables (before migration 0007) just mean no AeK link yet.
+    supabase
+      .from("delegation_aek_links")
+      .select("id, token, created_at, revoked_at")
+      .eq("delegation_id", id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("delegation_aek_updates").select("*").eq("delegation_id", id).maybeSingle(),
+    // Same for Region Guidance before migration 0008.
+    supabase
+      .from("delegation_region_links")
+      .select("id, token, created_at")
+      .eq("delegation_id", id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("delegation_drivers").select("leg, full_name, aims, phone").eq("delegation_id", id).order("leg", { ascending: false }).order("position"),
   ]);
 
   const loadError = [filesRes, staysRes, transportRes, mealsRes, mulaqatRes].find((r) => r.error)?.error;
@@ -100,6 +128,29 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   const meals = (mealsRes.data ?? []) as unknown as Meal[];
   const mulaqats = (mulaqatRes.data ?? []) as unknown as Mulaqat[];
   const team = (teamRes.data ?? []) as unknown as TeamMember[];
+
+  // Share links, what the AeK has sent, and the drivers the region has added.
+  const aekUpdate = (aekRes.data ?? null) as AekUpdate | null;
+  const drivers = (driversRes.data ?? []) as Driver[];
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const origin = `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`;
+  const aek: AekState = {
+    update: aekUpdate,
+    share: {
+      ready: !linkRes.error,
+      link: toShareLink(linkRes.data as AekLink | null, "aek", d.departure_date, origin),
+      received: aekUpdate ? `Details received · last sent ${formatDateTime(aekUpdate.submitted_at)}` : null,
+    },
+  };
+  const region: RegionState = {
+    drivers,
+    share: {
+      ready: !regionLinkRes.error,
+      link: toShareLink(regionLinkRes.data as AekLink | null, "region", d.departure_date, origin),
+      received: driversReceived(drivers),
+    },
+  };
 
   const today = londonDate(new Date());
   const days = stayDays(d);
@@ -180,6 +231,17 @@ export default async function DelegationPage({ params, searchParams }: Props) {
                 {daysLabel(days.length)}
                 {dayNumber > 0 && ` · day ${dayNumber} today`}
               </small>
+              {aekUpdate && (aekUpdate.arrival_time || aekUpdate.departure_time) && (
+                <small className="dl-aek" title="Update from the AeK (head of delegation)">
+                  <span className="aek-chip">AeK</span>
+                  {[
+                    aekUpdate.arrival_time && `Lands ${aekTravelLine(aekUpdate.arrival_time, null, null)}`,
+                    aekUpdate.departure_time && `leaves ${aekTravelLine(aekUpdate.departure_time, null, null)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </small>
+              )}
             </div>
           ) : (
             <div className="dl-dates">
@@ -220,7 +282,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
       )}
 
       <div className="tab-body rise" style={vars({ "--i": "3" })} key={tab}>
-        {tab === "info" && <InfoPanel delegation={d} files={files} summary={summary} canManage={canManage} />}
+        {tab === "info" && <InfoPanel delegation={d} files={files} summary={summary} canManage={canManage} aek={aek} region={region} />}
 
         {tab !== "info" && days.length === 0 && (
           <section className="notice glass">

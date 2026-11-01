@@ -27,6 +27,13 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
   fleet_vehicle_drivers: { noun: "a driver's access to a vehicle", title: () => "" },
   fleet_files: { noun: "a document", title: (d) => String(d.file_name ?? "") },
   delegation_files: { noun: "an itinerary", title: (d) => String(d.file_name ?? "") },
+  delegation_aek_links: { noun: "an AeK link", title: () => "" },
+  delegation_aek_updates: { noun: "travel details through the AeK link", title: () => "" },
+  delegation_region_links: { noun: "a Region Guidance link", title: () => "" },
+  delegation_drivers: {
+    noun: "a driver",
+    title: (d) => [d.full_name, d.leg === "dropoff" ? "drop-off" : d.leg === "pickup" ? "pickup" : null].filter(Boolean).join(", "),
+  },
   delegation_stays: { noun: "accommodation", title: (d) => String(d.venue ?? "") },
   delegation_transport: { noun: "transport", title: (d) => [d.transport_type, d.vehicle].filter(Boolean).join(", ") },
   delegation_meals: {
@@ -43,7 +50,11 @@ export function describe(entry: AuditEntry) {
   const data = entry.new_data ?? entry.old_data ?? {};
   const noun = sub?.noun ?? dept?.noun ?? "record";
   const title = sub ? sub.title(data) : dept ? String(data[dept.titleField] ?? "") : "";
-  const who = entry.actor?.full_name ?? "Someone";
+  // Changes made through an AeK link have no signed-in user.
+  const viaAek = entry.table_name === "delegation_aek_updates" || data.source === "aek";
+  const viaRegion = entry.table_name === "delegation_drivers";
+  const who =
+    entry.actor?.full_name ?? (viaAek ? "The AeK (head of delegation)" : viaRegion ? "The region (Region Guidance link)" : "Someone");
 
   const verb =
     entry.action === "insert" ? "added" : entry.action === "delete" ? "removed" : "updated";

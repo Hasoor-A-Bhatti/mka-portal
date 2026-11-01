@@ -1,9 +1,10 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/session";
 import { getDepartment } from "@/lib/departments";
-import { MEALS, TRANSPORT_TYPES, dayRange, fromCalendar, type MealKey } from "@/lib/delegations";
+import { MEALS, SHARE_KINDS, TRANSPORT_TYPES, dayRange, fromCalendar, type MealKey, type ShareKind } from "@/lib/delegations";
 
 export type Result = { ok?: boolean; error?: string };
 
@@ -187,6 +188,45 @@ export async function deleteItinerary(id: string, fileId: string): Promise<Resul
     await supabase.storage.from("delegations").remove([data.file_path]);
     const res = await supabase.from("delegation_files").delete().eq("id", fileId).select("id");
     return check(res, "itinerary") ?? done(id);
+  });
+}
+
+// ---------- Share links (AeK and Region Guidance) ----------
+
+function linkFriendly(error: DbError, kind: ShareKind): string {
+  if (error.code === "42P01" || error.code === "PGRST205") {
+    return `${SHARE_KINDS[kind].label} links aren't set up yet: run supabase/migrations/${SHARE_KINDS[kind].migration} in Supabase.`;
+  }
+  return friendly(error);
+}
+
+/** Makes a new private link. Any earlier link of the same kind stops working. */
+export async function createShareLink(id: string, kind: ShareKind): Promise<Result> {
+  return guarded(async () => {
+    if (!(kind in SHARE_KINDS)) throw new Invalid("Unknown link type.");
+    const { supabase } = await delegation(id);
+    const table = SHARE_KINDS[kind].table;
+    const off = await supabase.from(table).update({ revoked_at: new Date().toISOString() }).eq("delegation_id", id).is("revoked_at", null);
+    if (off.error) return { error: linkFriendly(off.error, kind) };
+    const token = randomBytes(24).toString("base64url");
+    const res = await supabase.from(table).insert({ delegation_id: id, token }).select("id");
+    if (res.error) return { error: linkFriendly(res.error, kind) };
+    return check(res, "link") ?? done(id);
+  });
+}
+
+/** Switches a link off straight away. */
+export async function revokeShareLink(id: string, kind: ShareKind, linkId: string): Promise<Result> {
+  return guarded(async () => {
+    if (!(kind in SHARE_KINDS)) throw new Invalid("Unknown link type.");
+    const { supabase } = await delegation(id);
+    const res = await supabase
+      .from(SHARE_KINDS[kind].table)
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", linkId)
+      .eq("delegation_id", id)
+      .select("id");
+    return check(res, "link") ?? done(id);
   });
 }
 

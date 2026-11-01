@@ -19,6 +19,9 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
    - Supabase → **Authentication → URL Configuration**: Site URL is the live site; add `http://localhost:3000/auth/callback` and `https://<live site>/auth/callback` to Redirect URLs.
 4. **Access.** Run `supabase/approved_access.sql` in the SQL Editor. It sets up the access rules (part A) and lists who gets what (part B). People get their access the first time they sign in. To change someone's access, edit part B and run the whole file again; people already signed in are updated straight away.
 
+5. **AeK links.** Run `supabase/migrations/0007_aek_links.sql` (after `approved_access.sql`). Each delegation then gets an "AeK link" on its Info tab: a private page (`/visit/…`) where the Amir-e-Kafla (head of delegation) sends arrival and departure times, travel and contact details, and uploads their itinerary, without signing in. What they send shows as "Update from AeK" next to the Google Calendar dates; it never changes the calendar. Links stop working 7 days after departure, or when switched off.
+6. **Region Guidance.** Run `supabase/migrations/0008_region_guidance.sql`. Each delegation then gets a "Region Guidance" link (`/region/…`) for the local operator: one page with arrival and departure, contacts, accommodation, food and transport, where they add airport pickup drivers and, optionally, drop-off drivers (name, AIMS, phone). Drivers show on the delegation's Info tab. Both links can be made and shared from the AeK / Region buttons on each delegation in the list, or from the Info tab.
+
 | Role | Can do |
 | --- | --- |
 | `viewer` (View only) | Open their department(s) and read everything, but not add, edit or remove |

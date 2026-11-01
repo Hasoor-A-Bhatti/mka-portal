@@ -4,12 +4,16 @@ import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   BedDouble,
   Bus,
   CalendarDays,
   ChevronRight,
   Download,
   Eye,
+  MapPinned,
+  PlaneLanding,
+  PlaneTakeoff,
   FileText,
   ImageIcon,
   Pencil,
@@ -21,8 +25,22 @@ import {
 } from "lucide-react";
 import { getDepartment, statusTone } from "@/lib/departments";
 import { ACCEPTED_FILES, MAX_FILE_BYTES, fileSize } from "@/lib/fleet";
-import { dayRange, daysLabel, fromCalendar, type Delegation, type DelegationFile } from "@/lib/delegations";
-import { formatDate } from "@/lib/format";
+import {
+  AEK_TITLE,
+  aekTravelLine,
+  dayRange,
+  daysLabel,
+  fmtDay,
+  fromCalendar,
+  telHref,
+  type AekUpdate,
+  type Delegation,
+  type DelegationFile,
+  type Driver,
+  type ShareState,
+} from "@/lib/delegations";
+import { ShareLinkPanel } from "@/components/delegations/share-links";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { vars } from "@/lib/css";
 import { createClient } from "@/lib/supabase/client";
 import { deleteItinerary, registerItinerary, saveDelegationInfo } from "@/app/(portal)/[dept]/[id]/actions";
@@ -51,17 +69,31 @@ const TYPES_BY_EXT: Record<string, string> = {
   heif: "image/heif",
 };
 
+export type AekState = { update: AekUpdate | null; share: ShareState };
+export type RegionState = { share: ShareState; drivers: Driver[] };
+
+/** True when the AeK gave a value that isn't what's on record. */
+const differs = (a: string | null | undefined, b: string | null | undefined) =>
+  Boolean(a && a.trim() && a.trim().toLowerCase() !== (b ?? "").trim().toLowerCase());
+
 export function InfoPanel({
   delegation: d,
   files,
   summary,
   canManage,
+  aek,
+  region,
 }: {
   delegation: Delegation;
   files: DelegationFile[];
   summary: PlanSummary;
   canManage: boolean;
+  aek: AekState;
+  region: RegionState;
 }) {
+  const u = aek.update;
+  const newName = u && differs(u.head_name, d.head_of_delegation) ? u.head_name : null;
+  const newPhone = u && differs(u.head_contact, d.head_contact) ? u.head_contact : null;
   const [editing, setEditing] = useState(false);
   const canEdit = useCanEdit();
   const base = `/delegations/${d.id}`;
@@ -98,6 +130,13 @@ export function InfoPanel({
               ) : (
                 <span className="muted-note">No contact number</span>
               )}
+              {(newName || newPhone) && (
+                <AekNote>
+                  {newName}
+                  {newName && newPhone && " · "}
+                  {newPhone && <a href={`tel:${newPhone.replace(/[^+\d]/g, "")}`}>{newPhone}</a>}
+                </AekNote>
+              )}
             </div>
           </div>
 
@@ -107,13 +146,24 @@ export function InfoPanel({
             <dt>Country</dt>
             <dd>{d.country ?? "—"}</dd>
             <dt>Members</dt>
-            <dd className="tnum">{d.members ?? "—"}</dd>
+            <dd className="tnum">
+              {d.members ?? "—"}
+              {u?.members != null && u.members !== d.members && <AekNote>{u.members} people</AekNote>}
+            </dd>
             <dt>Venue</dt>
             <dd>{d.venue ?? "—"}</dd>
             <dt>Arrives</dt>
-            <dd>{d.arrival_date ? formatDate(d.arrival_date) : "—"}</dd>
+            <dd>
+              <DateWithSource date={d.arrival_date} synced={fromCalendar(d)} />
+              {u && <AekTravel date={u.arrival_date} recorded={d.arrival_date} time={u.arrival_time} travel={u.arrival_travel} place={u.arrival_place} />}
+            </dd>
             <dt>Departs</dt>
-            <dd>{d.departure_date ? formatDate(d.departure_date) : "—"}</dd>
+            <dd>
+              <DateWithSource date={d.departure_date} synced={fromCalendar(d)} />
+              {u && (
+                <AekTravel date={u.departure_date} recorded={d.departure_date} time={u.departure_time} travel={u.departure_travel} place={u.departure_place} />
+              )}
+            </dd>
             <dt>Status</dt>
             <dd>
               <span className="status" style={vars({ "--tone": statusTone(d.status) })}>
@@ -126,7 +176,21 @@ export function InfoPanel({
                 <dd className="pre">{d.notes}</dd>
               </>
             )}
+            {u?.notes && (
+              <>
+                <dt>AeK notes</dt>
+                <dd className="pre aek-notes">{u.notes}</dd>
+              </>
+            )}
           </dl>
+          {u && (
+            <p className="muted-note sync-line">
+              <span className="aek-chip" title={AEK_TITLE}>
+                AeK
+              </span>
+              Details last sent by the AeK on {formatDateTime(u.submitted_at)}.
+            </p>
+          )}
           {fromCalendar(d) && (
             <p className="muted-note sync-line">
               <CalendarDays size={14} /> Name and dates come from the Google Calendar.
@@ -134,8 +198,14 @@ export function InfoPanel({
           )}
         </section>
 
+        <DriversPanel drivers={region.drivers} hasLink={Boolean(region.share.link)} />
+
         <ItineraryPanel delegationId={d.id} files={files} canManage={canManage} />
       </div>
+
+      <div className="stack">
+      <ShareLinkPanel kind="aek" delegation={d} state={aek.share} />
+      <ShareLinkPanel kind="region" delegation={d} state={region.share} />
 
       <section className="panel glass">
         <div className="panel-head">
@@ -178,6 +248,7 @@ export function InfoPanel({
           </ul>
         )}
       </section>
+      </div>
 
       {editing && <InfoDialog delegation={d} onClose={() => setEditing(false)} />}
     </div>
@@ -400,7 +471,12 @@ function ItineraryPanel({ delegationId, files, canManage }: { delegationId: stri
                     {f.file_name}
                   </a>
                   <small>
-                    {[f.mime_type === "application/pdf" ? "PDF" : "Image", fileSize(f.size_bytes), formatDate(f.created_at), f.creator?.full_name ?? ""]
+                    {f.source === "aek" && (
+                      <span className="aek-chip" title={AEK_TITLE}>
+                        From AeK
+                      </span>
+                    )}
+                    {[f.mime_type === "application/pdf" ? "PDF" : "Image", fileSize(f.size_bytes), formatDate(f.created_at), f.source === "aek" ? "" : (f.creator?.full_name ?? "")]
                       .filter(Boolean)
                       .join(" · ")}
                   </small>
@@ -427,6 +503,128 @@ function ItineraryPanel({ delegationId, files, canManage }: { delegationId: stri
         </ul>
       )}
       <FormError error={error} />
+    </section>
+  );
+}
+
+// ---------- AeK ----------
+
+/** "Update from AeK" marker with what they sent. */
+function AekNote({ children }: { children: ReactNode }) {
+  return (
+    <span className="aek-line">
+      <span className="aek-chip" title={AEK_TITLE}>
+        Update from AeK
+      </span>
+      <span>{children}</span>
+    </span>
+  );
+}
+
+function DateWithSource({ date, synced }: { date: string | null; synced: boolean }) {
+  if (!date) return <>—</>;
+  return (
+    <span className="date-source">
+      {fmtDay(date, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+      {synced && (
+        <span className="cal-chip" title="From the Google Calendar">
+          <CalendarDays size={12} /> Google Calendar
+        </span>
+      )}
+    </span>
+  );
+}
+
+function AekTravel({
+  date,
+  recorded,
+  time,
+  travel,
+  place,
+}: {
+  date: string | null;
+  recorded: string | null;
+  time: string | null;
+  travel: string | null;
+  place: string | null;
+}) {
+  const line = aekTravelLine(time, travel, place);
+  if (!date && !line) return null;
+  const moved = Boolean(date && recorded && date !== recorded);
+  return (
+    <AekNote>
+      {[date && fmtDay(date, { weekday: "short", day: "numeric", month: "short" }), line].filter(Boolean).join(" · ")}
+      {moved && (
+        <em className="aek-differs" title="The AeK gave a different date from the Google Calendar. Update the calendar if theirs is right.">
+          <AlertTriangle size={12} /> Different date from calendar
+        </em>
+      )}
+    </AekNote>
+  );
+}
+
+// ---------- Drivers (from the Region Guidance link) ----------
+
+function DriversPanel({ drivers, hasLink }: { drivers: Driver[]; hasLink: boolean }) {
+  const legs = [
+    { key: "pickup" as const, label: "Airport pickup", icon: <PlaneLanding size={16} /> },
+    { key: "dropoff" as const, label: "Airport drop-off", icon: <PlaneTakeoff size={16} /> },
+  ];
+  return (
+    <section className="panel glass">
+      <div className="panel-head">
+        <div>
+          <h2>Drivers</h2>
+          <p className="muted-note">Added by the local operator through the Region Guidance link.</p>
+        </div>
+        <span className="region-chip">
+          <MapPinned size={12} /> Region
+        </span>
+      </div>
+      <div className="driver-legs">
+        {legs.map((leg) => {
+          const list = drivers.filter((x) => x.leg === leg.key);
+          return (
+            <div key={leg.key} className="driver-leg">
+              <h3>
+                {leg.icon} {leg.label}
+                <span className="count-pill">{list.length}</span>
+              </h3>
+              {list.length === 0 ? (
+                <p className="muted-note">{hasLink ? "None added yet." : "Share the Region Guidance link so the region can add drivers."}</p>
+              ) : (
+                <ul className="driver-list">
+                  {list.map((x, i) => (
+                    <li key={i}>
+                      <span className="avatar driver-avatar" aria-hidden>
+                        {(x.full_name ?? "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?"}
+                      </span>
+                      <div>
+                        <strong>{x.full_name ?? "Name not given"}</strong>
+                        <small>
+                          {x.aims ? <>AIMS {x.aims}</> : "No AIMS number"}
+                          {x.phone && (
+                            <>
+                              {" · "}
+                              <a href={telHref(x.phone)}>{x.phone}</a>
+                            </>
+                          )}
+                        </small>
+                      </div>
+                      {x.phone && (
+                        <a className="icon-link" href={telHref(x.phone)} title={`Call ${x.full_name ?? "driver"}`}>
+                          <Phone size={16} />
+                          <span className="sr-only">Call</span>
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

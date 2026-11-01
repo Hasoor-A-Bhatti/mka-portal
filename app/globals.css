@@ -6427,3 +6427,916 @@ fieldset:disabled :is(button, label, input[type="checkbox"]) {
     display: none;
   }
 }
+
+/* =====================================================================
+   AeK (Amir-e-Kafla): details sent by the head of delegation
+   Gold marks anything that came from the AeK; purple is the team's own.
+   ===================================================================== */
+
+.aek-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--gold-text);
+  background: var(--gold-pale);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.aek-badge {
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+
+.cal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--purple-600);
+  background: var(--purple-50);
+  border: 1px solid var(--purple-100);
+}
+
+.date-source {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* "Update from AeK" line under a value */
+.aek-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+.aek-line a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.head-card .aek-line {
+  margin-top: 8px;
+}
+
+.aek-differs {
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.aek-notes {
+  padding: 10px 12px !important;
+  border-radius: var(--radius-md);
+  background: var(--gold-pale);
+}
+
+.dl-aek {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* AeK link panel */
+.aek-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A thin coloured strip along the top: gold for AeK, teal for Region */
+.aek-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.aek-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light) 60%, transparent);
+}
+
+.aek-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  color: var(--text-soft);
+  background: rgba(247, 245, 252, 0.8);
+}
+
+.aek-status strong {
+  color: var(--text);
+}
+
+.aek-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 20%, transparent);
+}
+
+.aek-dot.is-done {
+  background: var(--ok);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent);
+}
+
+.aek-url {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.aek-url .input {
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.aek-share,
+.aek-manage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.aek-whatsapp {
+  color: #0b7a3e;
+}
+
+.aek-expiry {
+  margin-top: 12px;
+}
+
+.aek-manage {
+  padding-top: 10px;
+  border-top: 1px solid var(--stroke);
+}
+
+.aek-create {
+  align-self: flex-start;
+}
+
+.file-meta small .aek-chip {
+  margin-right: 6px;
+}
+
+/* ---------- The AeK's own page (/visit/…) ---------- */
+.visit {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(760px, 100%);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 28px 16px 20px;
+}
+
+.visit-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.visit-brand .brand-org b {
+  font-size: 13px;
+}
+
+.visit-card {
+  padding: clamp(20px, 4vw, 30px);
+  border-radius: var(--radius-xl);
+}
+
+.visit-card h1 {
+  margin-top: 6px;
+  font-size: clamp(24px, 4.6vw, 32px);
+  line-height: 1.15;
+}
+
+.visit-card h2 {
+  font-size: 19px;
+}
+
+.visit-lead {
+  margin-top: 8px;
+  color: var(--text-soft);
+}
+
+.visit-planned {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.visit-planned.is-saved {
+  margin-top: 6px;
+  color: var(--ok);
+}
+
+.visit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.visit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Floated so the legend sits inside the group, not in its border */
+.visit-group legend {
+  float: left;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+  padding: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--purple-800);
+}
+
+.visit-group + .visit-group {
+  padding-top: 20px;
+  border-top: 1px solid var(--stroke);
+}
+
+.visit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field-hint {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.visit-submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.visit-submit .btn {
+  min-width: 200px;
+  height: 48px;
+}
+
+.visit-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.visit-files-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.visit-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.visit-files li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: rgba(247, 245, 252, 0.8);
+}
+
+.visit-files li span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.visit-files .ok {
+  color: var(--ok);
+}
+
+.visit-privacy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.visit-foot {
+  margin: auto 0 0;
+}
+
+@media (max-width: 640px) {
+  .visit-grid {
+    grid-template-columns: 1fr;
+  }
+  .visit-submit .btn {
+    width: 100%;
+  }
+  .visit-submit {
+    justify-content: stretch;
+  }
+  .visit .watermark {
+    display: none;
+  }
+  .kv .aek-line {
+    font-size: 12.5px;
+  }
+}
+
+/* =====================================================================
+   Share links on the delegations list, Drivers, and Region Guidance
+   Gold = AeK (the delegation), blue-teal = Region (the local operator).
+   ===================================================================== */
+
+:root {
+  --region: #1f6f8b;
+  --region-pale: #e8f4f8;
+}
+
+/* AeK / Region buttons on each delegation */
+.share-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.share-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px 0 9px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-soft);
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.share-btn:hover {
+  color: var(--text);
+  background: var(--purple-50);
+}
+
+/* Status dot: none yet, link sent (waiting), details received */
+.share-btn i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--stroke-strong);
+}
+
+.share-btn.is-live i {
+  background: var(--gold);
+}
+
+.share-btn.is-done i {
+  background: var(--ok);
+}
+
+.share-btn.is-live,
+.share-btn.is-done {
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.row-share {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* The pop-up opened from a row sits inside the table: undo the table's text styles */
+.records dialog {
+  font-size: 14px;
+  font-weight: 400;
+  white-space: normal;
+  text-align: left;
+  cursor: auto;
+}
+
+.share-sheet {
+  grid-template-columns: 1fr !important;
+}
+
+.share-bare {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-bare > .muted-note:first-child {
+  margin-bottom: 8px;
+}
+
+.aek-panel.is-region::before {
+  background: linear-gradient(90deg, var(--region), color-mix(in srgb, var(--region) 40%, #fff) 60%, transparent);
+}
+
+.region-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--region);
+  background: var(--region-pale);
+  border: 1px solid color-mix(in srgb, var(--region) 30%, transparent);
+}
+
+/* Drivers on the Info tab */
+.driver-legs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.driver-leg h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14.5px;
+}
+
+.count-pill {
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--purple-50);
+}
+
+.driver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.driver-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.8);
+}
+
+.driver-list li > div {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.driver-list strong {
+  font-size: 14px;
+}
+
+.driver-list small {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.driver-list small a {
+  color: var(--text-soft);
+}
+
+.driver-avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+/* ---------- Region Guidance page ---------- */
+.region .eyebrow {
+  color: var(--region);
+}
+
+.region-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.region-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.region .visit-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.8);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+.task.is-done {
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.task.is-optional {
+  box-shadow: inset 3px 0 0 var(--stroke-strong);
+}
+
+.task-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--purple-700);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+.task-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.task-text strong {
+  font-size: 14.5px;
+}
+
+.task-text span {
+  font-size: 13.5px;
+  color: var(--text-soft);
+}
+
+.task-state {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--gold-text);
+  background: var(--gold-pale);
+}
+
+.task.is-done .task-state {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 10%, #fff);
+}
+
+.task.is-optional .task-state {
+  color: var(--muted);
+  background: var(--purple-50);
+}
+
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.travel-kv {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px 14px;
+  margin: 0;
+}
+
+.travel-kv dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.travel-kv dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.tbc {
+  font-weight: 500;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.region-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.region-contact > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.region-contact small {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.region-contact strong {
+  font-size: 16px;
+}
+
+.region-note {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--gold-pale);
+}
+
+.region-note svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--gold-text);
+}
+
+.region-updated {
+  margin-top: 10px;
+}
+
+.region-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.region-list li {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.8);
+}
+
+.region-list-main {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+}
+
+.region-list-main span {
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.region-list-main small {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.food-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.food-day {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.8);
+}
+
+.food-day h3 {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.food-day ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.food-day li {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.food-meal {
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.food-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.food-detail small {
+  color: var(--muted);
+}
+
+.food-day li.is-none {
+  color: var(--muted);
+}
+
+.food-day li.is-none .food-meal {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Drivers form */
+.optional-tag {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--font-body), sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--purple-50);
+}
+
+.driver-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.driver-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.7);
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+.driver-num {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-top: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple-700);
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+.driver-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.2fr;
+  gap: 10px;
+}
+
+.driver-remove {
+  margin-top: 28px;
+}
+
+.driver-add {
+  align-self: flex-start;
+}
+
+@media (max-width: 860px) {
+  .driver-legs,
+  .region-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .records.cards-mobile td.row-share {
+    grid-column: 1 / -1;
+    width: auto;
+  }
+  .driver-fields {
+    grid-template-columns: 1fr;
+  }
+  .driver-num {
+    margin-top: 0;
+  }
+  .driver-remove {
+    margin-top: 0;
+  }
+  .task {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .task-state {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

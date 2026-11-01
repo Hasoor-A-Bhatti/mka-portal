@@ -8,6 +8,8 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { deleteRecord, saveRecord, type SaveState } from "@/app/(portal)/[dept]/actions";
 import { vars } from "@/lib/css";
 import { useCanEdit } from "@/components/edit-access";
+import { ShareLinkButtons } from "@/components/delegations/share-links";
+import type { ShareState } from "@/lib/delegations";
 
 export type RecordRow = {
   id: string;
@@ -18,9 +20,18 @@ export type RecordRow = {
   [column: string]: unknown;
 };
 
-type Props = { slug: string; rows: RecordRow[]; canDelete: boolean };
+type Props = {
+  slug: string;
+  rows: RecordRow[];
+  canDelete: boolean;
+  /** Delegations whose AeK has sent their details. */
+  aekIds?: string[];
+  /** AeK and Region Guidance links for each delegation, for the buttons on each row. */
+  share?: Record<string, { aek: ShareState; region: ShareState }>;
+};
 
-export function RecordsPanel({ slug, rows, canDelete }: Props) {
+export function RecordsPanel({ slug, rows, canDelete, aekIds, share }: Props) {
+  const aek = useMemo(() => new Set(aekIds ?? []), [aekIds]);
   const dept = getDepartment(slug)!;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -127,6 +138,7 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                 ))}
                 <th>Status</th>
                 <th>Last edited</th>
+                {share && <th>Links</th>}
                 {dept.detailPages && <th aria-hidden />}
               </tr>
             </thead>
@@ -153,6 +165,11 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                           <span className="sr-only">From the Google Calendar</span>
                         </span>
                       )}
+                      {c.name === dept.titleField && aek.has(r.id) && (
+                        <span className="aek-chip aek-badge" title="The AeK (head of delegation) has sent their details">
+                          AeK
+                        </span>
+                      )}
                     </td>
                   ))}
                   <td data-label="Status">
@@ -162,6 +179,24 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                     {r.editor?.full_name ?? r.creator?.full_name ?? "Unknown"}
                     <small>{formatDateTime(r.updated_at)}</small>
                   </td>
+                  {share && (
+                    <td className="row-share" data-label="Links">
+                      {share[r.id] && (
+                        <ShareLinkButtons
+                          delegation={{
+                            id: r.id,
+                            name: String(r.name ?? ""),
+                            head_of_delegation: (r.head_of_delegation as string | null) ?? null,
+                            head_contact: (r.head_contact as string | null) ?? null,
+                            arrival_date: (r.arrival_date as string | null) ?? null,
+                            departure_date: (r.departure_date as string | null) ?? null,
+                          }}
+                          aek={share[r.id].aek}
+                          region={share[r.id].region}
+                        />
+                      )}
+                    </td>
+                  )}
                   {dept.detailPages && (
                     <td className="row-go" aria-hidden>
                       <ChevronRight size={16} />

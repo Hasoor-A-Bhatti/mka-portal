@@ -12,6 +12,9 @@ import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google
 import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
 import { computeQuickStats, type StatDelegation, type StatMeal, type StatStay, type StatTransport } from "@/lib/delegation-stats";
 import { QuickStats } from "@/components/delegations/quick-stats";
+import { headers } from "next/headers";
+import { driversReceived, toShareLink, type Driver, type ShareState } from "@/lib/delegations";
+import { formatDateTime } from "@/lib/format";
 import { EditAccess } from "@/components/edit-access";
 
 export const dynamic = "force-dynamic";
@@ -56,9 +59,9 @@ export default async function DepartmentPage({ params }: Params) {
 
   // Quick Stats are for Delegations department admins, administrators and View only (oversight) users.
   const showStats = showCalendar && (isManager(slug) || roleIn(slug) === "viewer");
-  const none = Promise.resolve({ data: [] as unknown[] });
+  const none = Promise.resolve({ data: [] as unknown[], error: null });
 
-  const [{ data: rows, error }, { data: activity }, staysRes, transportRes, mealsRes] = await Promise.all([
+  const [{ data: rows, error }, { data: activity }, staysRes, transportRes, mealsRes, aekRes, aekLinksRes, regionLinksRes, driversRes] = await Promise.all([
     supabase
       .from(dept.table)
       .select(
@@ -76,7 +79,15 @@ export default async function DepartmentPage({ params }: Params) {
     showStats ? supabase.from("delegation_stays").select("delegation_id, venue, start_date, end_date") : none,
     showStats ? supabase.from("delegation_transport").select("delegation_id, transport_type") : none,
     showStats ? supabase.from("delegation_meals").select("delegation_id, day, catered").eq("catered", true) : none,
+    // Which delegations' AeK has sent details (empty before migration 0007).
+    showCalendar ? supabase.from("delegation_aek_updates").select("delegation_id, submitted_at") : none,
+    // Working share links and drivers, for the AeK / Region buttons on each delegation.
+    showCalendar ? supabase.from("delegation_aek_links").select("id, delegation_id, token, created_at").is("revoked_at", null) : none,
+    showCalendar ? supabase.from("delegation_region_links").select("id, delegation_id, token, created_at").is("revoked_at", null) : none,
+    showCalendar ? supabase.from("delegation_drivers").select("delegation_id, leg") : none,
   ]);
+  const aekRows = (aekRes.data ?? []) as { delegation_id: string; submitted_at: string }[];
+  const aekIds = aekRows.map((r) => r.delegation_id);
 
   const records = (rows ?? []) as unknown as RecordRow[];
   const counts = new Map<string, number>();
@@ -94,6 +105,40 @@ export default async function DepartmentPage({ params }: Params) {
         today,
       )
     : null;
+  // AeK and Region Guidance link state for each delegation.
+  let share: Record<string, { aek: ShareState; region: ShareState }> | undefined;
+  if (showCalendar) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+    const origin = `${h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`;
+    type LinkRow = { id: string; delegation_id: string; token: string; created_at: string };
+    const latest = (list: LinkRow[]) => {
+      const m = new Map<string, LinkRow>();
+      for (const l of list) if (!m.get(l.delegation_id) || m.get(l.delegation_id)!.created_at < l.created_at) m.set(l.delegation_id, l);
+      return m;
+    };
+    const aekLinks = latest((aekLinksRes.data ?? []) as LinkRow[]);
+    const regionLinks = latest((regionLinksRes.data ?? []) as LinkRow[]);
+    const drivers = (driversRes.data ?? []) as { delegation_id: string; leg: Driver["leg"] }[];
+    const aekSent = new Map(aekRows.map((r) => [r.delegation_id, r.submitted_at]));
+    share = {};
+    for (const r of records) {
+      const departure = (r.departure_date as string | null) ?? null;
+      const sent = aekSent.get(r.id);
+      share[r.id] = {
+        aek: {
+          ready: !aekLinksRes.error,
+          link: toShareLink(aekLinks.get(r.id), "aek", departure, origin),
+          received: sent ? `Details received · last sent ${formatDateTime(sent)}` : null,
+        },
+        region: {
+          ready: !regionLinksRes.error,
+          link: toShareLink(regionLinks.get(r.id), "region", departure, origin),
+          received: driversReceived(drivers.filter((x) => x.delegation_id === r.id)),
+        },
+      };
+    }
+  }
   const Icon = dept.icon;
 
   return (
@@ -162,7 +207,7 @@ export default async function DepartmentPage({ params }: Params) {
       )}
 
       <div className="split rise" style={vars({ "--i": "4" })}>
-        <RecordsPanel slug={slug} rows={records} canDelete={isManager(slug)} />
+        <RecordsPanel slug={slug} rows={records} canDelete={isManager(slug)} aekIds={showCalendar ? aekIds : undefined} share={share} />
 
         <section className="panel glass">
           <div className="panel-head">
