@@ -6405,3 +6405,25 @@ fieldset:disabled :is(button, label, input[type="checkbox"]) {
     display: none;
   }
 }
+
+/* Login page: footer runs along the bottom, under both columns */
+.login {
+  grid-template-rows: 1fr auto;
+}
+
+.login-site-foot {
+  grid-column: 1 / -1;
+  align-self: end;
+  margin: 0;
+  position: relative;
+}
+
+@media (max-width: 860px) {
+  .login {
+    grid-template-rows: auto auto auto;
+  }
+  /* The emblem already leads the page on phones */
+  .login .watermark {
+    display: none;
+  }
+}

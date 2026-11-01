@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { initials } from "@/lib/format";
 import { Crumbs, Nav } from "@/components/nav";
+import { SiteFooter, Watermark } from "@/components/brand";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -64,26 +65,10 @@ export default async function PortalLayout({ children }: { children: React.React
 
         <main className="content">{children}</main>
 
-        <footer className="site-foot">
-          <span className="seal is-tiny" aria-hidden>
-            <span className="seal-art" />
-          </span>
-          <p>
-            <strong>Majlis Khuddamul Ahmadiyya UK</strong>
-            <span>MKA Portal · For internal use only</span>
-          </p>
-          <small>© {new Date().getFullYear()} Majlis Khuddamul Ahmadiyya UK</small>
-        </footer>
+        <SiteFooter />
       </div>
 
-      {/* Faint emblem and name behind every dashboard */}
-      <div className="watermark" aria-hidden>
-        <span className="watermark-seal" />
-        <span className="watermark-text">
-          Majlis Khuddamul Ahmadiyya
-          <small>United Kingdom</small>
-        </span>
-      </div>
+      <Watermark />
     </div>
   );
 }

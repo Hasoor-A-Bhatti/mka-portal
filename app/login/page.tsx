@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DEPARTMENTS } from "@/lib/departments";
 import { LoginForm } from "./login-form";
 import { vars } from "@/lib/css";
+import { SiteFooter, Watermark } from "@/components/brand";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -47,6 +48,9 @@ export default async function LoginPage({
         <LoginForm next={next ?? "/"} error={error} />
         <p className="login-foot">Can't get in? Ask your department admin to check your access.</p>
       </section>
+
+      <SiteFooter className="login-site-foot" />
+      <Watermark />
     </main>
   );
 }
