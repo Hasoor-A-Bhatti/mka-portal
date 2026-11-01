@@ -34,6 +34,7 @@ import { MileagePanel } from "@/components/fleet/mileage-panel";
 import { MaintenancePanel } from "@/components/fleet/maintenance-panel";
 import { IncidentsPanel } from "@/components/fleet/incidents-panel";
 import { DriversPanel } from "@/components/fleet/drivers-panel";
+import { EditAccess } from "@/components/edit-access";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   const tab: Tab = TABS.some((t) => t.key === rawTab) ? (rawTab as Tab) : "overview";
   const fleetDept = getDepartment("fleet")!;
 
-  const { supabase, canAccess, isManager } = await getSession();
+  const { supabase, canAccess, canEdit, isManager } = await getSession();
   if (!canAccess("fleet")) {
     return (
       <section className="notice glass">
@@ -143,6 +144,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
   const yearMiles = milesThisYear(logs);
 
   return (
+    <EditAccess canEdit={canEdit("fleet")}>
     <div style={vars({ "--accent": fleetDept.accent }, { display: "contents" })}>
       <Link href="/fleet" className="back-link rise">
         <ArrowLeft size={16} /> All vehicles
@@ -239,6 +241,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
         )}
       </div>
     </div>
+    </EditAccess>
   );
 }
 

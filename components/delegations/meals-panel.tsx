@@ -5,6 +5,7 @@ import { Check, CheckCircle2, Copy, Utensils } from "lucide-react";
 import { MEALS, fmtDay, type Meal, type MealKey } from "@/lib/delegations";
 import { saveMealsDay, type MealInput } from "@/app/(portal)/[dept]/[id]/actions";
 import { FormError, useRun } from "@/components/fleet/ui";
+import { useCanEdit } from "@/components/edit-access";
 
 type Entry = { catered: boolean; location: string; menu: string };
 type DayPlan = Record<MealKey, Entry>;
@@ -109,6 +110,7 @@ function MealDay({
   onSaved: (plan: DayPlan) => void;
 }) {
   const [plan, setPlan] = useState<DayPlan>(saved);
+  const canEdit = useCanEdit();
   const [justSaved, setJustSaved] = useState(false);
   const { pending, error, run } = useRun();
 
@@ -157,7 +159,7 @@ function MealDay({
             </span>
           </p>
         </div>
-        {previous && (
+        {previous && canEdit && (
           <button
             type="button"
             className="icon-link"
@@ -173,7 +175,7 @@ function MealDay({
         )}
       </header>
 
-      <div className="meal-rows">
+      <fieldset className="meal-rows" disabled={!canEdit}>
         {MEALS.map((m) => {
           const e = plan[m.key];
           const id = `${day}-${m.key}`;
@@ -208,7 +210,7 @@ function MealDay({
             </div>
           );
         })}
-      </div>
+      </fieldset>
 
       <footer className="meal-day-foot">
         {dirty ? (

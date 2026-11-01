@@ -8,6 +8,7 @@ import { vars } from "@/lib/css";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { DateSpanFields, SuggestInput } from "./fields";
 import { Planner, toneFor } from "./planner";
+import { useCanEdit } from "@/components/edit-access";
 
 const VENUES = ["Baitul Futuh", "Baitul Ehsan", "Fazl Mosque", "Hotel"];
 
@@ -26,6 +27,7 @@ export function StaysPanel({
   suggestions: string[];
   canManage: boolean;
 }) {
+  const canEdit = useCanEdit();
   const [editing, setEditing] = useState<{ stay: Stay | null; day?: string } | null>(null);
   const covered = new Set(days.filter((d) => stays.some((s) => d >= s.start_date && d <= s.end_date)));
   const missing = days.length - covered.size;
@@ -58,9 +60,11 @@ export function StaysPanel({
             <h2>Accommodation planner</h2>
             <p className="muted-note">Where the group sleeps each night. Click a bar to edit it.</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setEditing({ stay: null })}>
-            <Plus size={18} /> Add stay
-          </button>
+          {canEdit && (
+            <button type="button" className="btn btn-primary" onClick={() => setEditing({ stay: null })}>
+              <Plus size={18} /> Add stay
+            </button>
+          )}
         </div>
         <Planner
           days={days}

@@ -7,6 +7,7 @@ import { deleteMulaqat, saveMulaqat } from "@/app/(portal)/[dept]/[id]/actions";
 import { initials } from "@/lib/format";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { Planner } from "./planner";
+import { useCanEdit } from "@/components/edit-access";
 
 const TONE = "#8a6210";
 
@@ -33,6 +34,7 @@ export function MulaqatPanel({
   team: TeamMember[];
   canManage: boolean;
 }) {
+  const canEdit = useCanEdit();
   const [editing, setEditing] = useState<{ mulaqat: Mulaqat | null; day?: string } | null>(null);
   const names = new Map(team.map((t) => [t.id, t.full_name]));
   const sorted = [...mulaqats].sort(
@@ -47,9 +49,11 @@ export function MulaqatPanel({
             <h2>Mulaqat schedule</h2>
             <p className="muted-note">When the group meets, and who from the team attends.</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setEditing({ mulaqat: null })}>
-            <Plus size={18} /> Add mulaqat
-          </button>
+          {canEdit && (
+            <button type="button" className="btn btn-primary" onClick={() => setEditing({ mulaqat: null })}>
+              <Plus size={18} /> Add mulaqat
+            </button>
+          )}
         </div>
         <Planner
           days={days}

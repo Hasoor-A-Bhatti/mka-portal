@@ -38,6 +38,7 @@ async function delegation(id: string, needManager = false) {
   if (!UUID.test(id)) throw new Invalid("That delegation doesn't exist.");
   const session = await getSession();
   if (!session.canAccess("delegations")) throw new Invalid("Delegations isn't on your account.");
+  if (!session.canEdit("delegations")) throw new Invalid("Your Delegations access is view only.");
   if (needManager && !session.isManager("delegations")) {
     throw new Invalid("Only Delegations department admins can remove things.");
   }

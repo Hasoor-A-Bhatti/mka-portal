@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ACCEPTED_FILES, MAX_FILE_BYTES, fileSize, type FileKind, type FleetFile } from "@/lib/fleet";
 import { formatDate } from "@/lib/format";
 import { deleteFile, registerFile, type Result } from "@/app/(portal)/fleet/actions";
+import { useCanEdit } from "@/components/edit-access";
 
 // ---------- Pop-up form ----------
 
@@ -22,23 +23,30 @@ export function Sheet({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const canEdit = useCanEdit();
   useEffect(() => {
     ref.current?.showModal();
   }, []);
 
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} aria-label={title}>
+    <dialog ref={ref} className={`sheet ${canEdit ? "" : "is-view-only"}`} onClose={onClose} aria-label={title}>
       <div className="sheet-head">
         <div>
-          <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
+          <h2>{canEdit ? title : title.replace(/^(Edit|Add) /, "")}</h2>
+          {canEdit ? subtitle && <p>{subtitle}</p> : <p className="view-only-note">View only</p>}
         </div>
         <button type="button" className="btn btn-ghost btn-icon" onClick={() => ref.current?.close()}>
           <X size={18} />
           <span className="sr-only">Close</span>
         </button>
       </div>
-      {children}
+      {canEdit ? (
+        children
+      ) : (
+        <fieldset disabled className="sheet-lock">
+          {children}
+        </fieldset>
+      )}
     </dialog>
   );
 }
@@ -131,6 +139,7 @@ export function UploadButton({
   multiple?: boolean;
   small?: boolean;
 }) {
+  const canEdit = useCanEdit();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [chosen, setChosen] = useState<File[] | null>(null);
@@ -151,6 +160,8 @@ export function UploadButton({
         router.refresh();
       },
     );
+
+  if (!canEdit) return null;
 
   return (
     <div className="upload">

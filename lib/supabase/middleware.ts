@@ -5,6 +5,16 @@ const PUBLIC_PATHS = ["/login", "/auth"];
 
 /** Refreshes the session cookie on every request and guards private pages. */
 export async function updateSession(request: NextRequest) {
+  // If Supabase sends a Google sign-in back to any other page (e.g. the Site URL),
+  // pass the one-time code to /auth/callback so it can be turned into a session.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname !== "/auth/callback") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    url.search = `?code=${encodeURIComponent(code)}&next=${encodeURIComponent(request.nextUrl.pathname === "/login" ? "/" : request.nextUrl.pathname)}`;
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

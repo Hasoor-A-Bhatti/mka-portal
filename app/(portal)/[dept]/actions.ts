@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDepartment, type Department } from "@/lib/departments";
+import { getSession } from "@/lib/session";
 
 export type SaveState = { ok?: boolean; error?: string; savedAt?: number };
 
@@ -36,6 +37,7 @@ export async function saveRecord(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Your session has ended. Sign in again to save." };
+  if (!(await getSession()).canEdit(slug)) return { error: "Your access to this department is view only." };
 
   const payload: Record<string, string | number | null> = {};
 

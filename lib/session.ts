@@ -4,9 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { DEPARTMENTS } from "@/lib/departments";
 
 /** Database values. "manager" is shown in the app as "Department admin". */
-export type Role = "member" | "manager";
+export type Role = "viewer" | "member" | "manager";
 
 export const ROLE_LABELS: Record<Role, string> = {
+  viewer: "View only",
   member: "Member",
   manager: "Department admin",
 };
@@ -79,6 +80,8 @@ export const getSession = cache(async () => {
     soleDepartment: !isAdmin && departments.length === 1 ? departments[0] : undefined,
     canAccess: (slug: string) => roles.has(slug),
     isManager: (slug: string) => roles.get(slug) === "manager",
+    /** Members and department admins can add and change things; View only users can't. */
+    canEdit: (slug: string) => roles.get(slug) === "member" || roles.get(slug) === "manager",
     roleIn: (slug: string) => roles.get(slug),
   };
 });

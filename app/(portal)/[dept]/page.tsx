@@ -12,6 +12,7 @@ import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google
 import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
 import { computeQuickStats, type StatDelegation, type StatMeal, type StatStay, type StatTransport } from "@/lib/delegation-stats";
 import { QuickStats } from "@/components/delegations/quick-stats";
+import { EditAccess } from "@/components/edit-access";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export default async function DepartmentPage({ params }: Params) {
   const dept = getDepartment(slug);
   if (!dept) notFound();
 
-  const { supabase, canAccess, isManager, roleIn, isAdmin, soleDepartment } = await getSession();
+  const { supabase, canAccess, canEdit, isManager, roleIn, isAdmin, soleDepartment } = await getSession();
 
   if (!canAccess(slug)) {
     return (
@@ -48,12 +49,13 @@ export default async function DepartmentPage({ params }: Params) {
   // so the table below already shows the result.
   const calendar: CalendarResult | null = showCalendar ? await getCalendarEvents() : null;
   const sync: SyncResult | null =
-    calendar && !calendar.error && !calendar.notConfigured && calendar.from
+    // View only users can't write, so only people who can edit bring records in step.
+    calendar && !calendar.error && !calendar.notConfigured && calendar.from && canEdit(slug)
       ? await syncDelegations(supabase, calendar.events, calendar.from, today)
       : null;
 
-  // Quick Stats are for Delegations department admins and administrators.
-  const showStats = showCalendar && isManager(slug);
+  // Quick Stats are for Delegations department admins, administrators and View only (oversight) users.
+  const showStats = showCalendar && (isManager(slug) || roleIn(slug) === "viewer");
   const none = Promise.resolve({ data: [] as unknown[] });
 
   const [{ data: rows, error }, { data: activity }, staysRes, transportRes, mealsRes] = await Promise.all([
@@ -95,6 +97,7 @@ export default async function DepartmentPage({ params }: Params) {
   const Icon = dept.icon;
 
   return (
+    <EditAccess canEdit={canEdit(slug)}>
     <div style={vars({ "--accent": dept.accent }, { display: "contents" })}>
       <header className="page-head rise">
         <div className="page-title">
@@ -169,5 +172,6 @@ export default async function DepartmentPage({ params }: Params) {
         </section>
       </div>
     </div>
+    </EditAccess>
   );
 }

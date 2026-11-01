@@ -619,6 +619,57 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-size: 15px;
 }
 
+.login-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-form .btn-google {
+  gap: 12px;
+  border: 1px solid var(--stroke-strong);
+  color: var(--text);
+  background: #fff;
+  box-shadow: var(--raise);
+}
+
+.login-form .btn-google:hover {
+  background: var(--purple-50);
+}
+
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.login-or::before,
+.login-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--stroke-strong);
+}
+
+.login-alt {
+  align-self: center;
+  padding: 4px 8px;
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  cursor: pointer;
+}
+
+.login-alt:hover {
+  color: var(--text);
+}
+
 .login-foot {
   margin-top: 22px;
   font-size: 13px;
@@ -6077,5 +6128,280 @@ dialog.sheet[open] {
   }
   .ready-main strong {
     white-space: normal;
+  }
+}
+
+/* ---------- View only ---------- */
+fieldset.sheet-lock,
+fieldset.meal-rows,
+fieldset.sheet-lock-grid {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}
+
+fieldset.sheet-lock {
+  display: contents;
+}
+
+fieldset.meal-rows {
+  padding: 0;
+}
+
+/* Read-only forms show their values, not a greyed-out form. */
+.sheet.is-view-only .sheet-foot,
+.sheet.is-view-only .sheet-lock .sheet-foot {
+  display: none;
+}
+
+fieldset:disabled :is(.input, .select, .textarea) {
+  color: var(--text);
+  background: var(--purple-50);
+  opacity: 1;
+  cursor: default;
+  -webkit-text-fill-color: var(--text);
+}
+
+fieldset:disabled :is(button, label, input[type="checkbox"]) {
+  cursor: default;
+}
+
+.view-only-note {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--purple-50);
+}
+
+/* =====================================================================
+   MKA branding: emblem seal, organisation lockup, watermark and footer
+   ===================================================================== */
+
+/* The emblem in a white medallion with a purple and gold rim */
+.seal {
+  position: relative;
+  width: 52px;
+  aspect-ratio: 1;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #fff 0%, #fbf9ff 60%, var(--purple-50) 100%);
+  box-shadow: 0 0 0 1px var(--stroke), inset 0 1px 0 #fff, 0 8px 18px -8px rgba(40, 14, 100, 0.45);
+}
+
+.seal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--gold-light), var(--gold) 30%, var(--purple-500) 60%, var(--purple-800) 80%, var(--gold));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+.seal-art {
+  position: absolute;
+  inset: 10%;
+  background: #000;
+  mask: url("/mka-logo.png") center / contain no-repeat;
+  -webkit-mask: url("/mka-logo.png") center / contain no-repeat;
+}
+
+.seal.is-small {
+  width: 40px;
+}
+
+.seal.is-tiny {
+  width: 30px;
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+/* "MAJLIS / KHUDDAMUL AHMADIYYA / UNITED KINGDOM", as on the official lockup */
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.brand-lockup .seal {
+  width: 48px;
+}
+
+.brand-org {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-family: var(--font-body), sans-serif;
+  line-height: 1.12;
+  text-transform: uppercase;
+}
+
+.brand-org b {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #121018;
+  white-space: nowrap;
+}
+
+.brand-org small {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold-text);
+}
+
+.brand-org.is-compact b {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* The app name sits under the organisation, divided by a fine gold rule */
+.brand-app {
+  margin: -6px 6px 0;
+  padding-top: 12px;
+  border-top: 1px solid transparent;
+  border-image: linear-gradient(90deg, var(--gold), rgba(212, 166, 63, 0.15)) 1;
+  font-family: var(--font-display), sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--purple-800);
+}
+
+.brand-app small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-body), sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.mobile-brand {
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+/* Watermark: the emblem and name, very faint, behind the dashboards */
+.watermark {
+  position: fixed;
+  right: clamp(16px, 3vw, 48px);
+  bottom: clamp(70px, 9vh, 110px);
+  z-index: -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.watermark-seal {
+  width: clamp(260px, 26vw, 420px);
+  aspect-ratio: 1;
+  background: var(--purple-900);
+  opacity: 0.05;
+  mask: url("/mka-logo.png") center / contain no-repeat;
+  -webkit-mask: url("/mka-logo.png") center / contain no-repeat;
+}
+
+.watermark-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-body), sans-serif;
+  font-size: clamp(13px, 1.15vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--purple-900);
+  opacity: 0.07;
+}
+
+.watermark-text small {
+  margin-top: 4px;
+  font-size: 0.62em;
+  letter-spacing: 0.4em;
+}
+
+/* Footer on every dashboard page */
+.site-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: auto clamp(4px, 1vw, 12px) 0;
+  padding: 18px 4px 6px;
+  border-top: 1px solid var(--stroke);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.site-foot p {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.site-foot strong {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.site-foot small {
+  margin-left: auto;
+  font-size: 12px;
+  text-align: right;
+}
+
+@media (max-width: 960px) {
+  .watermark {
+    right: 50%;
+    bottom: 50%;
+    translate: 50% 50%;
+  }
+  .watermark-seal {
+    width: 78vw;
+    opacity: 0.04;
+  }
+  .watermark-text {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .site-foot {
+    flex-wrap: wrap;
+  }
+  .site-foot small {
+    width: 100%;
+    margin-left: 42px;
+    text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .mobile-brand .brand-org {
+    display: none;
+  }
+}
+
+@media print {
+  .watermark {
+    display: none;
   }
 }

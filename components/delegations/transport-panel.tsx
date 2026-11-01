@@ -8,6 +8,7 @@ import { vars } from "@/lib/css";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { DateSpanFields } from "./fields";
 import { Planner } from "./planner";
+import { useCanEdit } from "@/components/edit-access";
 
 const TONES: Record<string, string> = {
   "Airport pickup": "#1f6fb5",
@@ -42,6 +43,7 @@ export function TransportPanel({
   bookings: Transport[];
   canManage: boolean;
 }) {
+  const canEdit = useCanEdit();
   const [editing, setEditing] = useState<{ booking: Transport | null; day?: string } | null>(null);
   const sorted = [...bookings].sort(
     (a, b) => a.start_date.localeCompare(b.start_date) || (a.pickup_time ?? "").localeCompare(b.pickup_time ?? ""),
@@ -74,9 +76,11 @@ export function TransportPanel({
             <h2>Transport planner</h2>
             <p className="muted-note">Pickups, drop-offs and vehicles for each day. Click a bar to edit it.</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setEditing({ booking: null })}>
-            <Plus size={18} /> Add transport
-          </button>
+          {canEdit && (
+            <button type="button" className="btn btn-primary" onClick={() => setEditing({ booking: null })}>
+              <Plus size={18} /> Add transport
+            </button>
+          )}
         </div>
         <Planner
           days={days}

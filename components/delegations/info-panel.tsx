@@ -27,6 +27,7 @@ import { vars } from "@/lib/css";
 import { createClient } from "@/lib/supabase/client";
 import { deleteItinerary, registerItinerary, saveDelegationInfo } from "@/app/(portal)/[dept]/[id]/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
+import { useCanEdit } from "@/components/edit-access";
 
 export type PlanSummary = {
   totalDays: number;
@@ -62,6 +63,7 @@ export function InfoPanel({
   canManage: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  const canEdit = useCanEdit();
   const base = `/delegations/${d.id}`;
   const phoneHref = d.head_contact ? `tel:${d.head_contact.replace(/[^+\d]/g, "")}` : null;
 
@@ -72,7 +74,13 @@ export function InfoPanel({
           <div className="panel-head">
             <h2>Delegation details</h2>
             <button type="button" className="btn btn-sm" onClick={() => setEditing(true)}>
-              <Pencil size={15} /> Edit details
+              {canEdit ? (
+                <>
+                  <Pencil size={15} /> Edit details
+                </>
+              ) : (
+                "View details"
+              )}
             </button>
           </div>
 
@@ -313,6 +321,7 @@ function ItineraryPanel({ delegationId, files, canManage }: { delegationId: stri
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const { pending, error, setError, run } = useRun();
+  const canEdit = useCanEdit();
 
   const upload = (chosen: File[]) =>
     run(
@@ -359,12 +368,16 @@ function ItineraryPanel({ delegationId, files, canManage }: { delegationId: stri
             if (chosen.length) upload(chosen);
           }}
         />
-        <button type="button" className="btn btn-sm" disabled={pending} onClick={() => input.current?.click()}>
-          <Upload size={15} /> {pending ? "Uploading…" : "Upload itinerary"}
-        </button>
+        {canEdit && (
+          <button type="button" className="btn btn-sm" disabled={pending} onClick={() => input.current?.click()}>
+            <Upload size={15} /> {pending ? "Uploading…" : "Upload itinerary"}
+          </button>
+        )}
       </div>
 
-      {files.length === 0 ? (
+      {files.length === 0 && !canEdit ? (
+        <p className="muted-note">No itinerary uploaded yet.</p>
+      ) : files.length === 0 ? (
         <button type="button" className="dropzone" onClick={() => input.current?.click()} disabled={pending}>
           <FileText size={24} />
           <strong>No itinerary yet</strong>

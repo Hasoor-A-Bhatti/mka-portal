@@ -16,6 +16,7 @@ import { formatDateTime } from "@/lib/format";
 import { deleteIncident, saveIncident } from "@/app/(portal)/fleet/actions";
 import { Pill } from "./bits";
 import { FileList, FormError, Sheet, UploadButton, uploadFleetFile, useRun } from "./ui";
+import { useCanEdit } from "@/components/edit-access";
 
 export function IncidentsPanel({
   vehicleId,
@@ -33,6 +34,7 @@ export function IncidentsPanel({
   canManage: boolean;
 }) {
   const [editing, setEditing] = useState<{ incident: Incident | null } | null>(null);
+  const canEdit = useCanEdit();
   const open = incidents.filter((i) => i.status !== "Resolved");
 
   return (
@@ -45,10 +47,12 @@ export function IncidentsPanel({
           <h2>Something happened with {registration}?</h2>
           <p>Report accidents, damage, breakdowns, theft or fines straight away, with photos if you have them.</p>
         </div>
-        <button type="button" className="btn btn-primary btn-lg" onClick={() => setEditing({ incident: null })}>
-          <AlertTriangle size={18} />
-          Report incident
-        </button>
+        {canEdit && (
+          <button type="button" className="btn btn-primary btn-lg" onClick={() => setEditing({ incident: null })}>
+            <AlertTriangle size={18} />
+            Report incident
+          </button>
+        )}
       </section>
 
       <section className="panel glass">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, KeyRound } from "lucide-react";
-import { getSession } from "@/lib/session";
+import { getSession, ROLE_LABELS } from "@/lib/session";
 import { getDepartment } from "@/lib/departments";
 import {
   DOC_KINDS,
@@ -29,6 +29,7 @@ import { vars } from "@/lib/css";
 import { Plate } from "@/components/fleet/bits";
 import { VehicleButton } from "@/components/fleet/vehicle-dialog";
 import { VehicleGrid, type VehicleCard } from "@/components/fleet/vehicle-grid";
+import { EditAccess } from "@/components/edit-access";
 
 export const metadata: Metadata = { title: "MKA Fleet" };
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ type Alert = { level: "bad" | "warn"; reg: string; href: string; text: string; s
 export default async function FleetPage() {
   const dept = getDepartment("fleet")!;
   const Icon = dept.icon;
-  const { supabase, canAccess, isManager, isAdmin, roleIn } = await getSession();
+  const { supabase, canAccess, canEdit, isManager, isAdmin, roleIn } = await getSession();
 
   if (!canAccess("fleet")) {
     return (
@@ -158,6 +159,7 @@ export default async function FleetPage() {
   const keysOut = vehicles.filter((v) => v.status !== "Sold" && v.key_holder);
 
   return (
+    <EditAccess canEdit={canEdit("fleet")}>
     <div style={vars({ "--accent": dept.accent }, { display: "contents" })}>
       <header className="page-head rise">
         <div className="page-title">
@@ -165,7 +167,7 @@ export default async function FleetPage() {
             <Icon size={28} />
           </span>
           <div>
-            <span className="eyebrow">{isAdmin ? "Administrator" : roleIn("fleet") === "manager" ? "Department admin" : "Member"}</span>
+            <span className="eyebrow">{isAdmin ? "Administrator" : ROLE_LABELS[roleIn("fleet") ?? "member"]}</span>
             <h1>{dept.name}</h1>
             <p>{dept.description}</p>
           </div>
@@ -273,5 +275,6 @@ export default async function FleetPage() {
         </div>
       </div>
     </div>
+    </EditAccess>
   );
 }

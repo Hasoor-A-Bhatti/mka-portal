@@ -7,6 +7,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { addMileage, deleteMileage } from "@/app/(portal)/fleet/actions";
 import { Odometer } from "./bits";
 import { FormError, useRun } from "./ui";
+import { useCanEdit } from "@/components/edit-access";
 
 export function MileagePanel({
   vehicleId,
@@ -22,6 +23,7 @@ export function MileagePanel({
   const form = useRef<HTMLFormElement>(null);
   const { pending, error, run } = useRun();
   const remove = useRun();
+  const canEdit = useCanEdit();
   const year = todayISO().slice(0, 4);
 
   // Oldest first, to work out miles since the previous reading.
@@ -110,6 +112,7 @@ export function MileagePanel({
           </div>
         </section>
 
+        {canEdit && (
         <section className="panel glass">
           <div className="panel-head">
             <h2>Log a reading</h2>
@@ -143,6 +146,7 @@ export function MileagePanel({
             </button>
           </form>
         </section>
+        )}
       </div>
     </div>
   );

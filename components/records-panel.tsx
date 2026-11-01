@@ -7,6 +7,7 @@ import { getDepartment, statusTone, type Department, type Field } from "@/lib/de
 import { formatDate, formatDateTime } from "@/lib/format";
 import { deleteRecord, saveRecord, type SaveState } from "@/app/(portal)/[dept]/actions";
 import { vars } from "@/lib/css";
+import { useCanEdit } from "@/components/edit-access";
 
 export type RecordRow = {
   id: string;
@@ -25,6 +26,7 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
   const [status, setStatus] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ row: RecordRow | null; key: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const canEdit = useCanEdit();
 
   const columns = dept.fields.filter((f) => f.inTable);
 
@@ -73,10 +75,12 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <button type="button" className="btn btn-primary" onClick={() => open(null)}>
-            <Plus size={18} />
-            New {dept.noun}
-          </button>
+          {canEdit && (
+            <button type="button" className="btn btn-primary" onClick={() => open(null)}>
+              <Plus size={18} />
+              New {dept.noun}
+            </button>
+          )}
         </div>
       </div>
 
@@ -100,13 +104,13 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
       {rows.length === 0 ? (
         <div className="empty">
           <strong>No {dept.plural} yet</strong>
-          Add the first one and it'll appear here, along with who added it.
-          <div>
+          {canEdit ? "Add the first one and it'll appear here, along with who added it." : `None have been added yet.`}
+          {canEdit && <div>
             <button type="button" className="btn btn-primary" onClick={() => open(null)}>
               <Plus size={18} />
               New {dept.noun}
             </button>
-          </div>
+          </div>}
         </div>
       ) : visible.length === 0 ? (
         <div className="empty">
@@ -138,7 +142,7 @@ export function RecordsPanel({ slug, rows, canDelete }: Props) {
                       view(r);
                     }
                   }}
-                  aria-label={`${dept.detailPages ? "Open" : "Edit"} ${String(r[dept.titleField] ?? dept.noun)}`}
+                  aria-label={`${dept.detailPages || !canEdit ? "Open" : "Edit"} ${String(r[dept.titleField] ?? dept.noun)}`}
                 >
                   {columns.map((c) => (
                     <td key={c.name} data-label={c.label}>
@@ -214,6 +218,7 @@ function RecordDialog({
   const [deleting, startDelete] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const noun = capitalise(dept.noun);
+  const canEdit = useCanEdit();
 
   useEffect(() => {
     ref.current?.showModal();
@@ -251,7 +256,8 @@ function RecordDialog({
       <form action={action}>
         <div className="sheet-head">
           <div>
-            <h2 id="sheet-title">{row ? `Edit ${dept.noun}` : `New ${dept.noun}`}</h2>
+            <h2 id="sheet-title">{!canEdit ? noun : row ? `Edit ${dept.noun}` : `New ${dept.noun}`}</h2>
+            {!canEdit && <p className="view-only-note">View only</p>}
             {row && (
               <p>
                 Added by {row.creator?.full_name ?? "unknown"} on {formatDateTime(row.created_at)}
@@ -268,7 +274,7 @@ function RecordDialog({
           </button>
         </div>
 
-        <div className="sheet-body">
+        <fieldset className="sheet-body sheet-lock-grid" disabled={!canEdit}>
           {synced && (
             <div className="sync-note wide">
               <CalendarDays size={18} />
@@ -292,9 +298,9 @@ function RecordDialog({
               {error}
             </p>
           )}
-        </div>
+        </fieldset>
 
-        <div className="sheet-foot">
+        {canEdit && <div className="sheet-foot">
           {row && canDelete && (
             <button type="button" className="btn btn-ghost btn-danger" onClick={remove} disabled={deleting}>
               {deleting ? "Removing…" : `Remove ${dept.noun}`}
@@ -308,7 +314,7 @@ function RecordDialog({
               {pending ? "Saving…" : row ? "Save changes" : `Add ${dept.noun}`}
             </button>
           </div>
-        </div>
+        </div>}
       </form>
     </dialog>
   );

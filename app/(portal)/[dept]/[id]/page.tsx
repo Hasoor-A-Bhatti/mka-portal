@@ -27,6 +27,7 @@ import { StaysPanel } from "@/components/delegations/stays-panel";
 import { TransportPanel } from "@/components/delegations/transport-panel";
 import { MealsPanel } from "@/components/delegations/meals-panel";
 import { MulaqatPanel } from "@/components/delegations/mulaqat-panel";
+import { EditAccess } from "@/components/edit-access";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   const dept = getDepartment("delegations")!;
   const Icon = dept.icon;
 
-  const { supabase, canAccess, isManager } = await getSession();
+  const { supabase, canAccess, canEdit, isManager } = await getSession();
   if (!canAccess("delegations")) {
     return (
       <section className="notice glass">
@@ -130,6 +131,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   const dayNumber = days.indexOf(today) + 1;
 
   return (
+    <EditAccess canEdit={canEdit("delegations")}>
     <div style={vars({ "--accent": dept.accent }, { display: "contents" })}>
       <Link href="/delegations" className="back-link rise">
         <ArrowLeft size={16} /> All delegations
@@ -249,6 +251,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
         )}
       </div>
     </div>
+    </EditAccess>
   );
 }
 

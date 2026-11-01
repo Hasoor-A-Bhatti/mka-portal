@@ -13,15 +13,20 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. **SQL Editor** → New query → paste all of `supabase/migrations/0001_mka_portal.sql` → **Run**. Then do the same with `supabase/migrations/0002_department_privacy.sql`, `supabase/migrations/0003_fleet.sql`, `supabase/migrations/0004_delegations_calendar.sql` and `supabase/migrations/0005_delegation_planning.sql` (in that order).
-3. **Authentication → Sign In / Providers → Email**: turn **off** "Allow new users to sign up". Only admins should create accounts.
-4. **Authentication → Users → Add user → Create new user**: enter email and password, tick "Auto confirm user".
-5. Open `supabase/grant_access.sql`, edit the emails and names, and run it in the SQL Editor. This sets each person's display name ("Salam …"), makes you an admin, and gives others their departments.
+3. **Google sign-in.** People sign in with their @khuddam.co.uk Google Workspace account.
+   - Google Cloud → **APIs & Services → Credentials**: an OAuth client of type **Web application**, with the redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`. The consent screen is **Internal**, so only Workspace accounts get through.
+   - Supabase → **Authentication → Sign In / Providers → Google**: turn it on and paste the client ID and secret. Turn on "Allow new users to sign up" (only @khuddam.co.uk accounts can be created, see below).
+   - Supabase → **Authentication → URL Configuration**: Site URL is the live site; add `http://localhost:3000/auth/callback` and `https://<live site>/auth/callback` to Redirect URLs.
+4. **Access.** Run `supabase/approved_access.sql` in the SQL Editor. It sets up the access rules (part A) and lists who gets what (part B). People get their access the first time they sign in. To change someone's access, edit part B and run the whole file again; people already signed in are updated straight away.
 
 | Role | Can do |
 | --- | --- |
+| `viewer` (View only) | Open their department(s) and read everything, but not add, edit or remove |
 | `member` (Member) | View, add and edit records in their department(s) |
 | `manager` (Department admin) | All of the above, plus remove records |
-| `profiles.is_admin` (Administrator) | Everything in every department |
+| `is_admin` (Administrator) | Everything in every department |
+
+Only @khuddam.co.uk accounts (or emails on the approved list) can be created. Password sign-in still works for accounts made under **Authentication → Users**.
 
 People only ever see the departments they've been given, and the names of colleagues who share a department with them. This is enforced by the database, not just hidden in the app.
 

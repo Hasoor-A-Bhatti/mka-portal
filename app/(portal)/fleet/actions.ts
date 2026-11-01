@@ -30,6 +30,7 @@ function friendly(error: DbError): string {
 async function fleet(needManager: boolean) {
   const session = await getSession();
   if (!session.canAccess("fleet")) return { error: "Fleet isn't on your account." } as const;
+  if (!session.canEdit("fleet")) return { error: "Your Fleet access is view only." } as const;
   if (needManager && !session.isManager("fleet")) {
     return { error: "Only Fleet department admins can do that." } as const;
   }

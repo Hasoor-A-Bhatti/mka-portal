@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Check, Plus } from "lucide-react";
 import { daysLabel, fmtDay, spanDays } from "@/lib/delegations";
 import { vars } from "@/lib/css";
+import { useCanEdit } from "@/components/edit-access";
 
 export type PlanItem = {
   id: string;
@@ -47,6 +48,7 @@ export function Planner({
   gaps?: { covered: string; missing: string };
   addLabel?: string;
 }) {
+  if (!useCanEdit()) onAdd = undefined;
   const index = new Map(days.map((d, i) => [d, i]));
   const rows = lanes(items.filter((i) => i.end >= days[0] && i.start <= days[days.length - 1]));
   const covered = new Set<string>();

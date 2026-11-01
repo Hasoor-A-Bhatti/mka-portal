@@ -8,9 +8,9 @@ export const metadata: Metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
   return (
     <main className="login">
@@ -43,9 +43,9 @@ export default async function LoginPage({
 
       <section className="login-card glass glass-strong spotlight rise" style={vars({ "--i": "2" })}>
         <h1>Sign in</h1>
-        <p className="sub">Use the account your department admin gave you.</p>
-        <LoginForm next={next ?? "/"} />
-        <p className="login-foot">Forgotten your password? Ask your admin to reset it.</p>
+        <p className="sub">Use your @khuddam.co.uk Google account.</p>
+        <LoginForm next={next ?? "/"} error={error} />
+        <p className="login-foot">Can't get in? Ask your department admin to check your access.</p>
       </section>
     </main>
   );
