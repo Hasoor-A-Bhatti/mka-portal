@@ -10,6 +10,8 @@ import { vars } from "@/lib/css";
 import { DelegationsCalendar } from "@/components/delegations-calendar";
 import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google-calendar";
 import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
+import { computeQuickStats, type StatDelegation, type StatMeal, type StatStay, type StatTransport } from "@/lib/delegation-stats";
+import { QuickStats } from "@/components/delegations/quick-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,11 @@ export default async function DepartmentPage({ params }: Params) {
       ? await syncDelegations(supabase, calendar.events, calendar.from, today)
       : null;
 
-  const [{ data: rows, error }, { data: activity }] = await Promise.all([
+  // Quick Stats are for Delegations department admins and administrators.
+  const showStats = showCalendar && isManager(slug);
+  const none = Promise.resolve({ data: [] as unknown[] });
+
+  const [{ data: rows, error }, { data: activity }, staysRes, transportRes, mealsRes] = await Promise.all([
     supabase
       .from(dept.table)
       .select(
@@ -64,6 +70,10 @@ export default async function DepartmentPage({ params }: Params) {
       .eq("department", slug)
       .order("changed_at", { ascending: false })
       .limit(10),
+    // Missing tables (before migration 0005) just mean empty lists here.
+    showStats ? supabase.from("delegation_stays").select("delegation_id, venue, start_date, end_date") : none,
+    showStats ? supabase.from("delegation_transport").select("delegation_id, transport_type") : none,
+    showStats ? supabase.from("delegation_meals").select("delegation_id, day, catered").eq("catered", true) : none,
   ]);
 
   const records = (rows ?? []) as unknown as RecordRow[];
@@ -73,6 +83,15 @@ export default async function DepartmentPage({ params }: Params) {
     counts.set(s, (counts.get(s) ?? 0) + 1);
   });
   const focusCount = dept.focus.statuses.reduce((n, s) => n + (counts.get(s) ?? 0), 0);
+  const quickStats = showStats
+    ? computeQuickStats(
+        records as unknown as StatDelegation[],
+        (staysRes.data ?? []) as StatStay[],
+        (transportRes.data ?? []) as StatTransport[],
+        (mealsRes.data ?? []) as StatMeal[],
+        today,
+      )
+    : null;
   const Icon = dept.icon;
 
   return (
@@ -115,6 +134,8 @@ export default async function DepartmentPage({ params }: Params) {
           Couldn't load {dept.plural}: {error.message}. Check the database setup in the README.
         </p>
       )}
+
+      {quickStats && <QuickStats stats={quickStats} />}
 
       {calendar && (
         <DelegationsCalendar
