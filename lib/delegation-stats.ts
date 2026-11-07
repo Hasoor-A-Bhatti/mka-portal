@@ -36,6 +36,10 @@ export type Seg = { id: string; name: string; guests: number; arrival: string; u
 export type Split = { guests: number; arrived: number; upcoming: number; segs: Seg[] };
 
 export type MonthBar = Split & { key: string; label: string; short: string };
+
+/** Which dates the stats cover. "all" runs from STATS_FROM through every booking. */
+export type RangePreset = "all" | "month" | "ytd" | "custom";
+export type StatRange = { preset: RangePreset; from?: string; to?: string };
 export type Ranked = Split & { name: string };
 export type OnSiteDay = Split & { day: string; groups: number };
 export type Readiness = {
@@ -55,6 +59,14 @@ export type Readiness = {
 
 export type QuickStats = {
   from: string;
+  /** Last day covered; for "all" the latest booking (or today). */
+  to: string;
+  preset: RangePreset;
+  /** True when the chosen start was before tracking began, so it was moved up. */
+  clamped: boolean;
+  /** Bars by week for short ranges, by month otherwise. */
+  bucket: "week" | "month";
+  onSiteNote: string;
   today: string;
   guests: number;
   arrived: number;
@@ -84,6 +96,40 @@ function nextMonth(key: string) {
 }
 
 const shiftYear = (day: string, n: number) => `${Number(day.slice(0, 4)) + n}${day.slice(4)}`;
+
+function prevMonth(key: string) {
+  const [y, m] = key.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
+/** Last day of the month a date is in. */
+export const monthEnd = (day: string) => addDays(`${nextMonth(monthKey(day))}-01`, -1);
+
+/** The Monday of the week a date is in. */
+const weekStart = (day: string) => addDays(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7));
+
+const dayLabel = (day: string, opts: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+
+/** The dates a preset covers, before clamping to STATS_FROM. */
+export function rangeDates(range: StatRange, today: string): { from: string; to: string | null } {
+  switch (range.preset) {
+    case "month":
+      return { from: `${monthKey(today)}-01`, to: monthEnd(today) };
+    case "ytd": {
+      // The MKA year starts on 1 November, so this runs from the latest 1 November.
+      const year = Number(today.slice(0, 4)) - (today.slice(5) >= "11-01" ? 0 : 1);
+      return { from: `${year}-11-01`, to: today };
+    }
+    case "custom": {
+      const a = range.from || STATS_FROM;
+      const b = range.to || today;
+      return a <= b ? { from: a, to: b } : { from: b, to: a };
+    }
+    default:
+      return { from: STATS_FROM, to: null };
+  }
+}
 
 // Names written different ways on the calendar and in stays become one venue.
 // Short codes are matched in capitals only, so "BE" is Baitul Ehsan but the word "be" isn't.
@@ -156,9 +202,16 @@ export function computeQuickStats(
   transport: StatTransport[],
   meals: StatMeal[],
   today: string,
+  range: StatRange = { preset: "all" },
 ): QuickStats {
   const live = rows.filter((r) => r.status !== "Cancelled" && r.arrival_date);
-  const inPeriod = live.filter((r) => r.arrival_date! >= STATS_FROM);
+  const wanted = rangeDates(range, today);
+  const all = wanted.to === null;
+  // Nothing before tracking began counts, whatever range is picked.
+  const from = wanted.from < STATS_FROM ? STATS_FROM : wanted.from;
+  const clamped = wanted.from < STATS_FROM;
+  const inPeriod = live.filter((r) => r.arrival_date! >= from && (all || r.arrival_date! <= wanted.to!));
+  const to = all ? inPeriod.reduce((m, r) => (r.arrival_date! > m ? r.arrival_date! : m), today) : wanted.to! < from ? from : wanted.to!;
   const size = (r: StatDelegation) => Math.max(0, r.members ?? 0);
   const seg = (r: StatDelegation, guests = size(r)): Seg => ({
     id: r.id,
@@ -181,25 +234,62 @@ export function computeQuickStats(
   }
   const countries = rank(byCountry);
 
-  // Months: from the start to whichever is later, this month or the last booking (12 at most).
-  const lastArrival = inPeriod.reduce((m, r) => (r.arrival_date! > m ? r.arrival_date! : m), today);
-  const keys: string[] = [];
-  for (let k = monthKey(STATS_FROM); k <= monthKey(lastArrival); k = nextMonth(k)) keys.push(k);
-  const months: MonthBar[] = keys.slice(-12).map((key) => ({
-    key,
-    label: monthLabel(key, { month: "long", year: "numeric" }),
-    short: monthLabel(key, { month: "short" }),
-    ...split(inPeriod.filter((r) => monthKey(r.arrival_date!) === key).map((r) => seg(r))),
-  }));
+  // Bars: by week for ranges up to about three months, otherwise by month (24 at most).
+  const span = spanDays(from, to);
+  const bucket: QuickStats["bucket"] = !all && span <= 92 ? "week" : "month";
+  let months: MonthBar[];
+  if (bucket === "week") {
+    months = [];
+    for (let w = weekStart(from); w <= to; w = addDays(w, 7)) {
+      const end = addDays(w, 6);
+      const first = w < from ? from : w;
+      const last = end > to ? to : end;
+      months.push({
+        key: w,
+        label: first === last ? dayLabel(first, { day: "numeric", month: "long" }) : `${dayLabel(first, { day: "numeric", month: "short" })} – ${dayLabel(last, { day: "numeric", month: "short" })}`,
+        short: dayLabel(first, { day: "numeric", month: "short" }),
+        ...split(inPeriod.filter((r) => r.arrival_date! >= w && r.arrival_date! <= end).map((r) => seg(r))),
+      });
+    }
+  } else {
+    const keys: string[] = [];
+    for (let k = monthKey(from); k <= monthKey(to); k = nextMonth(k)) keys.push(k);
+    const many = keys.length > 12;
+    months = keys.slice(-24).map((key) => ({
+      key,
+      label: monthLabel(key, { month: "long", year: "numeric" }),
+      short: monthLabel(key, many ? { month: "short", year: "2-digit" } : { month: "short" }),
+      ...split(inPeriod.filter((r) => monthKey(r.arrival_date!) === key).map((r) => seg(r))),
+    }));
+  }
   const peakMonth = [...months].sort((a, b) => b.guests - a.guests)[0];
   const peak = peakMonth && peakMonth.guests > 0 ? { label: peakMonth.label, guests: peakMonth.guests } : null;
+
+  const guestsBetween = (a: string, b: string) =>
+    live.filter((r) => r.arrival_date! >= a && r.arrival_date! <= b).reduce((n, r) => n + size(r), 0);
+  const compare = (now: number, before: number, label: string, against: string): QuickStats["growth"] =>
+    before > 0
+      ? {
+          value: pct((now - before) / before),
+          label,
+          detail: `${now.toLocaleString("en-GB")} guests vs ${before.toLocaleString("en-GB")} ${against}`,
+          tone: now > before ? "up" : now < before ? "down" : "flat",
+        }
+      : { value: "—", label, detail: `No guests ${against} to compare`, tone: "none" };
 
   // Growth: same period last year when there's data for it, otherwise this month against last.
   const lastYear = live
     .filter((r) => r.arrival_date! >= shiftYear(STATS_FROM, -1) && r.arrival_date! <= shiftYear(today, -1))
     .reduce((n, r) => n + size(r), 0);
   let growth: QuickStats["growth"];
-  if (lastYear > 0 && today >= STATS_FROM) {
+  if (range.preset === "month") {
+    const pm = prevMonth(monthKey(from));
+    growth = compare(total.guests, guestsBetween(`${pm}-01`, addDays(from, -1)), "vs last month", `in ${monthLabel(pm, { month: "long" })}`);
+  } else if (range.preset === "ytd") {
+    growth = compare(total.guests, guestsBetween(shiftYear(from, -1), shiftYear(to, -1)), "vs last year", "in the same dates last year");
+  } else if (range.preset === "custom") {
+    growth = compare(total.guests, guestsBetween(addDays(from, -span), addDays(from, -1)), "vs period before", `in the ${span} days before`);
+  } else if (lastYear > 0 && today >= STATS_FROM) {
     const change = (total.arrived - lastYear) / lastYear;
     const diff = total.arrived - lastYear;
     growth = {
@@ -245,10 +335,14 @@ export function computeQuickStats(
     for (const [v, guests] of share(size(r), weights)) push(byVenue, v, seg(r, guests));
   }
 
-  // Guests here each day for the next 30 days.
+  // Guests here each day: across the range when it's short, otherwise the next 30 days.
+  const daily = !all && span <= 62;
+  const onSiteFrom = daily ? from : today;
+  const onSiteDays = daily ? span : 30;
+  const onSiteNote = daily ? (range.preset === "month" ? "Each day this month" : "Each day in the range") : "Next 30 days";
   const onSite: OnSiteDay[] = [];
-  for (let i = 0; i < 30; i++) {
-    const day = addDays(today, i);
+  for (let i = 0; i < onSiteDays; i++) {
+    const day = addDays(onSiteFrom, i);
     const here = live.filter((r) => r.arrival_date! <= day && (r.departure_date ?? r.arrival_date!) >= day);
     onSite.push({ day, groups: here.length, ...split(here.map((r) => seg(r))) });
   }
@@ -276,7 +370,12 @@ export function computeQuickStats(
     });
 
   return {
-    from: STATS_FROM,
+    from,
+    to,
+    preset: range.preset,
+    clamped,
+    bucket,
+    onSiteNote,
     today,
     guests: total.guests,
     arrived: total.arrived,

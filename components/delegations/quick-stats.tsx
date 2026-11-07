@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
   BarChart3,
   BedDouble,
   Bus,
+  CalendarClock,
+  CalendarDays,
   CalendarRange,
   CheckCircle2,
+  History,
   ChevronDown,
   Globe2,
   TrendingDown,
@@ -16,26 +19,96 @@ import {
   Users,
   Utensils,
 } from "lucide-react";
-import { fmtDay } from "@/lib/delegations";
+import { addDays, fmtDay } from "@/lib/delegations";
 import { vars } from "@/lib/css";
-import { NOT_SET, type MonthBar, type OnSiteDay, type QuickStats as Stats, type Ranked, type Readiness, type Split } from "@/lib/delegation-stats";
+import {
+  NOT_SET,
+  STATS_FROM,
+  computeQuickStats,
+  type MonthBar,
+  type OnSiteDay,
+  type QuickStats as Stats,
+  type RangePreset,
+  type Ranked,
+  type Readiness,
+  type Split,
+  type StatDelegation,
+  type StatMeal,
+  type StatStay,
+  type StatTransport,
+} from "@/lib/delegation-stats";
 
 const OPEN_KEY = "mka.delegations.quick-stats.open";
+const RANGE_KEY = "mka.delegations.quick-stats.range";
 const n = (v: number) => v.toLocaleString("en-GB");
 
+export type QuickStatsData = {
+  rows: StatDelegation[];
+  stays: StatStay[];
+  transport: StatTransport[];
+  meals: StatMeal[];
+  today: string;
+};
 
-export function QuickStats({ stats }: { stats: Stats }) {
+const PRESETS: { key: RangePreset; label: string; icon: ReactNode }[] = [
+  { key: "all", label: "All time", icon: <History size={15} /> },
+  { key: "month", label: "This month", icon: <CalendarDays size={15} /> },
+  { key: "ytd", label: "Year to date", icon: <CalendarClock size={15} /> },
+  { key: "custom", label: "Date range", icon: <CalendarRange size={15} /> },
+];
+
+const short = (d: string) => fmtDay(d, { day: "numeric", month: "short" });
+const full = (d: string) => fmtDay(d, { day: "numeric", month: "short", year: "numeric" });
+
+/** "November 2026", "1 Nov – 7 Nov 2026", "Since November 2026". */
+function rangeLabel(s: Stats) {
+  if (s.preset === "all") return `Since ${fmtDay(s.from, { month: "long", year: "numeric" })}`;
+  if (s.preset === "month") return fmtDay(s.from, { month: "long", year: "numeric" });
+  if (s.from === s.to) return full(s.from);
+  return s.from.slice(0, 4) === s.to.slice(0, 4) ? `${short(s.from)} – ${full(s.to)}` : `${full(s.from)} – ${full(s.to)}`;
+}
+
+export function QuickStats({ data }: { data: QuickStatsData }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  const today = data.today;
+  const [preset, setPreset] = useState<RangePreset>("all");
+  // The custom range starts as this month to 30 days ahead.
+  const [custom, setCustom] = useState(() => {
+    const start = `${today.slice(0, 7)}-01`;
+    return { from: start < STATS_FROM ? STATS_FROM : start, to: addDays(today, 30) };
+  });
 
-  // Remember the choice per browser; open by default on wide screens only.
+  const stats = useMemo(
+    () => computeQuickStats(data.rows, data.stays, data.transport, data.meals, today, preset === "custom" ? { preset, ...custom } : { preset }),
+    [data, today, preset, custom],
+  );
+
+  // Remember the choices per browser; open by default on wide screens only.
   useEffect(() => {
     let saved: string | null = null;
+    let range: string | null = null;
     try {
       saved = localStorage.getItem(OPEN_KEY);
+      range = localStorage.getItem(RANGE_KEY);
     } catch {}
     setOpen(saved ? saved === "1" : window.matchMedia("(min-width: 961px)").matches);
+    if (range) {
+      try {
+        const r = JSON.parse(range) as { preset?: RangePreset; from?: string; to?: string };
+        if (r.preset && PRESETS.some((p) => p.key === r.preset)) setPreset(r.preset);
+        if (r.from && r.to && /^\d{4}-\d{2}-\d{2}$/.test(r.from) && /^\d{4}-\d{2}-\d{2}$/.test(r.to)) setCustom({ from: r.from, to: r.to });
+      } catch {}
+    }
   }, []);
+
+  const choose = (next: RangePreset, dates = custom) => {
+    setPreset(next);
+    setCustom(dates);
+    try {
+      localStorage.setItem(RANGE_KEY, JSON.stringify({ preset: next, ...dates }));
+    } catch {}
+  };
 
   const toggle = () => {
     setOpen((o) => {
@@ -47,7 +120,7 @@ export function QuickStats({ stats }: { stats: Stats }) {
   };
 
   const needsWork = stats.readiness.filter((r) => r.score < 1).length;
-  const started = stats.today >= stats.from;
+  const started = today >= STATS_FROM;
   const countryCount = stats.countries.filter((c) => c.name !== NOT_SET).length;
 
   return (
@@ -58,9 +131,7 @@ export function QuickStats({ stats }: { stats: Stats }) {
         </span>
         <span className="qs-head-text">
           <strong>Quick Stats</strong>
-          <small>
-            Since {fmtDay(stats.from, { month: "long", year: "numeric" })} · updates live
-          </small>
+          <small>{rangeLabel(stats)} · updates live</small>
         </span>
         <span className="qs-head-chips" aria-hidden={open}>
           <span>
@@ -79,6 +150,51 @@ export function QuickStats({ stats }: { stats: Stats }) {
       </button>
 
       <div id={panelId} className="qs-body" hidden={!open}>
+        <div className="qs-range">
+          <div className="qs-range-tabs" role="group" aria-label="Date range">
+            {PRESETS.map((p) => (
+              <button key={p.key} type="button" className="qs-range-btn" aria-pressed={preset === p.key} onClick={() => choose(p.key)}>
+                {p.icon}
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {preset === "custom" ? (
+            <div className="qs-range-dates">
+              <label>
+                <span>From</span>
+                <input
+                  type="date"
+                  className="input"
+                  min={STATS_FROM}
+                  value={custom.from}
+                  onChange={(e) => e.target.value && choose("custom", { ...custom, from: e.target.value })}
+                />
+              </label>
+              <span className="qs-range-dash" aria-hidden>
+                –
+              </span>
+              <label>
+                <span>To</span>
+                <input
+                  type="date"
+                  className="input"
+                  min={STATS_FROM}
+                  value={custom.to}
+                  onChange={(e) => e.target.value && choose("custom", { ...custom, to: e.target.value })}
+                />
+              </label>
+            </div>
+          ) : (
+            <span className="qs-range-label">
+              <CalendarRange size={14} /> {rangeLabel(stats)}
+            </span>
+          )}
+        </div>
+
+        {stats.clamped && (
+          <p className="qs-note">Tracking starts on 1 November 2026, so earlier dates aren&apos;t counted.</p>
+        )}
         {!started && (
           <p className="qs-note">
             Tracking starts on 1 November 2026. Until then, figures show delegations already booked from that date.
@@ -101,7 +217,13 @@ export function QuickStats({ stats }: { stats: Stats }) {
             value={n(countryCount)}
             detail={stats.countries[0] && stats.countries[0].name !== NOT_SET ? `Top: ${stats.countries[0].name} (${n(stats.countries[0].guests)})` : "None yet"}
           />
-          <Tile icon={<BarChart3 size={17} />} label="Peak month" value={stats.peak ? stats.peak.label : "—"} detail={stats.peak ? `${n(stats.peak.guests)} guests` : "No guests yet"} small />
+          <Tile
+            icon={<BarChart3 size={17} />}
+            label={stats.bucket === "week" ? "Busiest week" : "Peak month"}
+            value={stats.peak ? stats.peak.label : "—"}
+            detail={stats.peak ? `${n(stats.peak.guests)} guests` : "No guests in this range"}
+            small
+          />
           <Tile
             icon={stats.growth.tone === "down" ? <TrendingDown size={17} /> : <TrendingUp size={17} />}
             label={stats.growth.label}
@@ -112,8 +234,11 @@ export function QuickStats({ stats }: { stats: Stats }) {
         </div>
 
         <div className="qs-grid">
-          <Card title="Monthly guests" note="By month of arrival, split by delegation">
-            <MonthChart months={stats.months} />
+          <Card
+            title={stats.bucket === "week" ? "Weekly guests" : "Monthly guests"}
+            note={`By ${stats.bucket} of arrival, split by delegation`}
+          >
+            <MonthChart months={stats.months} bucket={stats.bucket} />
           </Card>
           <Card title="Guests by country" note={stats.countries.length > 8 ? "Top 8" : undefined}>
             <SplitBars items={stats.countries} empty="No countries yet" caption="Guests by country" />
@@ -121,7 +246,7 @@ export function QuickStats({ stats }: { stats: Stats }) {
           <Card title="Guests by accommodation" note="Groups at two venues are shared by days at each">
             <SplitBars items={stats.venues} empty="No accommodation recorded yet" caption="Guests by accommodation" />
           </Card>
-          <Card title="Guests on site" note="Next 30 days">
+          <Card title="Guests on site" note={stats.onSiteNote}>
             <OnSiteChart days={stats.onSite} today={stats.today} />
           </Card>
         </div>
@@ -257,8 +382,8 @@ function describe(title: string, bar: Split) {
   return `${title}: ${n(bar.guests)} guests${who ? `. ${who}` : ""}`;
 }
 
-function MonthChart({ months }: { months: MonthBar[] }) {
-  if (!months.some((m) => m.guests > 0)) return <p className="qs-empty">No guests yet.</p>;
+function MonthChart({ months, bucket }: { months: MonthBar[]; bucket: "week" | "month" }) {
+  if (!months.some((m) => m.guests > 0)) return <p className="qs-empty">No guests arriving in this range.</p>;
   const max = niceMax(Math.max(...months.map((m) => m.guests), 0));
   return (
     <>
@@ -280,10 +405,10 @@ function MonthChart({ months }: { months: MonthBar[] }) {
         </div>
       </div>
       <table className="sr-only">
-        <caption>Guests by month of arrival</caption>
+        <caption>Guests by {bucket} of arrival</caption>
         <thead>
           <tr>
-            <th>Month</th>
+            <th>{bucket === "week" ? "Week" : "Month"}</th>
             <th>Arrived</th>
             <th>Yet to arrive</th>
             <th>Delegations</th>
@@ -367,7 +492,7 @@ function SplitBars({ items, empty, caption, limit = 8 }: { items: Ranked[]; empt
 
 function OnSiteChart({ days, today }: { days: OnSiteDay[]; today: string }) {
   const peak = days.reduce((m, d) => (d.guests > m.guests ? d : m), days[0]);
-  if (!peak || peak.guests === 0) return <p className="qs-empty">No guests expected in the next 30 days.</p>;
+  if (!peak || peak.guests === 0) return <p className="qs-empty">No guests on site in these dates.</p>;
   const max = niceMax(peak.guests);
   const day = (d: string) => fmtDay(d, { weekday: "short", day: "numeric", month: "short" });
   return (
@@ -393,7 +518,9 @@ function OnSiteChart({ days, today }: { days: OnSiteDay[]; today: string }) {
         </div>
         <div className="col-labels">
           {days.map((d, i) => (
-            <span key={d.day}>{i % 7 === 0 && i <= days.length - 7 ? (i === 0 ? "Today" : fmtDay(d.day, { day: "numeric", month: "short" })) : ""}</span>
+            <span key={d.day}>
+              {i % 7 === 0 && (i <= days.length - 4 || i === 0) ? (d.day === today ? "Today" : fmtDay(d.day, { day: "numeric", month: "short" })) : ""}
+            </span>
           ))}
         </div>
       </div>

@@ -252,9 +252,12 @@ insert into public.approved_users (email, full_name, is_admin) values
   ('fleet@khuddam.co.uk',                'Bilal Rasheed',  false),
   ('jaidad@khuddam.co.uk',               'Waqas Ahmed',    false),
   ('stores@khuddam.co.uk',               'Nabeel Qamar',   false),
-  ('specialarrangments@khuddam.co.uk',   'Fateh Rasheed',  false)
+  ('specialarrangments@khuddam.co.uk',   'Fateh Rasheed',  false),
+  ('sadr@khuddam.co.uk',                 null,             false),  -- name comes from their Google account
+  ('mobushar.raja@khuddam.co.uk',        'Mobushar Raja',  false),
+  ('ansar.bajwa@khuddam.co.uk',          'Ansar Bajwa',    false)
 on conflict (email) do update
-set full_name = excluded.full_name,
+set full_name = coalesce(excluded.full_name, approved_users.full_name),
     is_admin  = excluded.is_admin;
 
 insert into public.approved_departments (email, department, role)
@@ -263,7 +266,9 @@ from (values
   ('operations@khuddam.co.uk'),
   ('add.operations@khuddam.co.uk'),
   ('add1.operations@khuddam.co.uk'),
-  ('admin.operations@khuddam.co.uk')
+  ('admin.operations@khuddam.co.uk'),
+  ('sadr@khuddam.co.uk'),
+  ('mobushar.raja@khuddam.co.uk')
 ) as o(email)
 cross join public.departments d          -- every department, view only
 union all
@@ -272,7 +277,11 @@ select * from (values
   ('fleet@khuddam.co.uk',              'fleet',                'manager'),
   ('jaidad@khuddam.co.uk',             'jaidat',               'manager'),
   ('stores@khuddam.co.uk',             'storage',              'manager'),
-  ('specialarrangments@khuddam.co.uk', 'special-arrangements', 'manager')
+  ('specialarrangments@khuddam.co.uk', 'special-arrangements', 'manager'),
+  -- View only in Jaidad, Fleet and Storage
+  ('ansar.bajwa@khuddam.co.uk',        'jaidat',               'viewer'),
+  ('ansar.bajwa@khuddam.co.uk',        'fleet',                'viewer'),
+  ('ansar.bajwa@khuddam.co.uk',        'storage',              'viewer')
 ) as m(email, department, role)
 on conflict (email, department) do update set role = excluded.role;
 

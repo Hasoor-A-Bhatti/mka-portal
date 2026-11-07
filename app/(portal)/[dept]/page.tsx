@@ -10,7 +10,7 @@ import { vars } from "@/lib/css";
 import { DelegationsCalendar } from "@/components/delegations-calendar";
 import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google-calendar";
 import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
-import { computeQuickStats, type StatDelegation, type StatMeal, type StatStay, type StatTransport } from "@/lib/delegation-stats";
+import type { StatDelegation, StatMeal, StatStay, StatTransport } from "@/lib/delegation-stats";
 import { QuickStats } from "@/components/delegations/quick-stats";
 import { headers } from "next/headers";
 import { driversReceived, toShareLink, type Driver, type ShareState } from "@/lib/delegations";
@@ -96,14 +96,25 @@ export default async function DepartmentPage({ params }: Params) {
     counts.set(s, (counts.get(s) ?? 0) + 1);
   });
   const focusCount = dept.focus.statuses.reduce((n, s) => n + (counts.get(s) ?? 0), 0);
+  // Quick Stats are worked out in the browser, so the date range can change instantly.
+  // Only the fields they need are sent.
   const quickStats = showStats
-    ? computeQuickStats(
-        records as unknown as StatDelegation[],
-        (staysRes.data ?? []) as StatStay[],
-        (transportRes.data ?? []) as StatTransport[],
-        (mealsRes.data ?? []) as StatMeal[],
+    ? {
+        rows: (records as unknown as StatDelegation[]).map(({ id, name, country, members, venue, arrival_date, departure_date, status }) => ({
+          id,
+          name,
+          country,
+          members,
+          venue,
+          arrival_date,
+          departure_date,
+          status,
+        })),
+        stays: ((staysRes.data ?? []) as StatStay[]).map(({ delegation_id, venue, start_date, end_date }) => ({ delegation_id, venue, start_date, end_date })),
+        transport: ((transportRes.data ?? []) as StatTransport[]).map(({ delegation_id, transport_type }) => ({ delegation_id, transport_type })),
+        meals: ((mealsRes.data ?? []) as StatMeal[]).map(({ delegation_id, day, catered }) => ({ delegation_id, day, catered })),
         today,
-      )
+      }
     : null;
   // AeK and Region Guidance link state for each delegation.
   let share: Record<string, { aek: ShareState; region: ShareState }> | undefined;
@@ -183,7 +194,7 @@ export default async function DepartmentPage({ params }: Params) {
         </p>
       )}
 
-      {quickStats && <QuickStats stats={quickStats} />}
+      {quickStats && <QuickStats data={quickStats} />}
 
       {calendar && (
         <DelegationsCalendar
