@@ -14,7 +14,9 @@ import {
   stayDays,
   hhmm,
   aekTravelLine,
+  allergySummary,
   driversReceived,
+  mealWanted,
   toShareLink,
   type Driver,
   type AekLink,
@@ -159,13 +161,20 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   // Progress for the tab badges and the Info summary.
   const coveredDays = days.filter((day) => stays.some((s) => day >= s.start_date && day <= s.end_date)).length;
   const mealsDone = meals.filter((m) => m.catered && inStay(m.day)).length;
+  // Meals the AeK said they don't need (and we haven't arranged anyway) don't count.
+  const requests = aekUpdate?.meal_requests ?? null;
+  const mealsTotal = days.reduce(
+    (n, day) =>
+      n + MEALS.filter((m) => mealWanted(requests, day, m.key) !== false || meals.some((x) => x.day === day && x.meal === m.key && x.catered)).length,
+    0,
+  );
   const next = mulaqats.find((m) => m.mulaqat_date >= today);
   const summary: PlanSummary = {
     totalDays: days.length,
     stayDays: coveredDays,
     transport: transport.length,
     meals: mealsDone,
-    mealsTotal: days.length * MEALS.length,
+    mealsTotal,
     mulaqats: mulaqats.length,
     nextMulaqat: next ? `${shortDay(next.mulaqat_date)}${next.mulaqat_time ? `, ${hhmm(next.mulaqat_time)}` : ""}` : null,
   };
@@ -307,7 +316,17 @@ export default async function DelegationPage({ params, searchParams }: Props) {
         {days.length > 0 && tab === "transport" && (
           <TransportPanel delegationId={id} days={days} today={today} bookings={transport} canManage={canManage} />
         )}
-        {days.length > 0 && tab === "food" && <MealsPanel delegationId={id} days={days} today={today} meals={meals} />}
+        {days.length > 0 && tab === "food" && (
+          <MealsPanel
+            delegationId={id}
+            days={days}
+            today={today}
+            meals={meals}
+            requests={requests}
+            requestedAt={aekUpdate?.meal_requests ? aekUpdate.submitted_at : null}
+            allergies={allergySummary(aekUpdate?.khuddam)}
+          />
+        )}
         {days.length > 0 && tab === "mulaqat" && (
           <MulaqatPanel delegationId={id} days={days} today={today} mulaqats={mulaqats} team={team} canManage={canManage} />
         )}

@@ -7340,3 +7340,361 @@ fieldset:disabled :is(button, label, input[type="checkbox"]) {
     justify-self: start;
   }
 }
+
+/* =====================================================================
+   AeK plans: Activities, Khuddam and Food requirements
+   On the AeK's page, the Info tab and the Food tab. Gold = from the AeK.
+   ===================================================================== */
+
+.visit-help {
+  margin-top: -4px;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.visit-need-dates {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.8);
+}
+
+/* Activities and Food tables on the AeK's page */
+.act-grid,
+.food-req {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.act-head,
+.act-row,
+.food-req-head,
+.food-req-row {
+  display: grid;
+  grid-template-columns: 112px repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.act-head,
+.food-req-head {
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.act-row,
+.food-req-row {
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: rgba(247, 245, 252, 0.7);
+  box-shadow: 0 0 0 1px var(--stroke);
+}
+
+.food-req-row {
+  align-items: center;
+}
+
+.act-day {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 4px;
+  line-height: 1.25;
+}
+
+.act-day strong {
+  font-size: 14px;
+  color: var(--purple-800);
+}
+
+.act-day small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.act-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.act-part {
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.act-cell .textarea {
+  min-height: 56px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.food-req-cell {
+  position: relative;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--stroke);
+  transition: box-shadow 0.15s, background 0.15s;
+}
+
+.food-req-cell.is-on {
+  box-shadow: 0 0 0 1px rgba(21, 128, 90, 0.35);
+}
+
+.food-req-cell:not(.is-on) {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.food-req-total {
+  margin-top: -4px;
+  text-align: right;
+}
+
+/* Khuddam rows on the AeK's page (built on the driver rows) */
+.khadim-fields .khadim-note {
+  grid-column: 1 / -1;
+}
+
+.khadim-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .act-head,
+  .food-req-head {
+    display: none;
+  }
+  .act-row {
+    grid-template-columns: 1fr;
+  }
+  .act-part {
+    display: block;
+  }
+  .food-req-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .food-req-row .act-day {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 4px 0;
+  }
+  .food-req-cell {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 4px;
+    font-size: 12.5px;
+    text-align: center;
+  }
+}
+
+/* Info tab: Activities table and Khuddam list */
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+.act-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+}
+
+.act-table th,
+.act-table td {
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.act-table thead th {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.act-table tbody th {
+  width: 110px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--purple-800);
+}
+
+.act-table td {
+  color: var(--text-soft);
+  white-space: pre-line;
+}
+
+.act-table td.is-empty {
+  color: var(--purple-200);
+}
+
+.act-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.inline-icon {
+  vertical-align: -2px;
+}
+
+.khuddam-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.allergy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 50%;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.allergy-chip.is-allergy {
+  color: var(--danger);
+  background: #fdf0f0;
+  border: 1px solid rgba(196, 58, 58, 0.25);
+}
+
+.allergy-chip.is-none {
+  color: var(--ok);
+  background: #eef8f3;
+  border: 1px solid rgba(21, 128, 90, 0.2);
+}
+
+.allergy-chip.is-unknown {
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--purple-50);
+}
+
+.aek-allergies {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  color: var(--danger);
+}
+
+.aek-allergies strong {
+  color: var(--text);
+}
+
+/* Food tab: what the AeK asked for */
+.aek-food {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.aek-food::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold), var(--gold-light));
+}
+
+.aek-food p {
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.aek-food p + p {
+  margin-top: 6px;
+}
+
+.aek-food .aek-allergies {
+  margin: 6px 0 0;
+}
+
+.aek-food small {
+  color: var(--muted);
+}
+
+.aek-chip.is-muted {
+  color: var(--muted);
+  background: rgba(247, 245, 252, 0.9);
+  border-color: var(--stroke-strong);
+}
+
+.meal-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.meal-row.is-skip {
+  background: transparent;
+  box-shadow: none;
+  outline: 1.5px dashed var(--stroke-strong);
+  outline-offset: -1.5px;
+}
+
+.meal-row.is-skip .meal-check {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--purple-200);
+}
+
+.meal-dots i.skip {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--purple-200);
+}
+
+/* Region brief: booking references */
+.region-list-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.booking-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--region);
+  background: var(--region-pale);
+  border: 1px solid color-mix(in srgb, var(--region) 30%, transparent);
+}

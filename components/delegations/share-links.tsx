@@ -23,7 +23,7 @@ const ICONS = { aek: UserRound, region: MapPinned };
 
 const COPY: Record<ShareKind, { about: string; waiting: string; create: string }> = {
   aek: {
-    about: `A private page for the ${AEK_TITLE} to send arrival and departure times, travel details and their itinerary. No sign-in needed.`,
+    about: `A private page for the ${AEK_TITLE} to send travel times, their khuddam, daily activities, meal needs and itinerary. No sign-in needed.`,
     waiting: "Waiting for the AeK · nothing sent yet",
     create: "Create AeK link",
   },
@@ -39,7 +39,7 @@ function shareMessage(kind: ShareKind, d: ShareDelegation, url: string) {
   const dates = d.arrival_date && d.departure_date ? ` (${dayRange(d.arrival_date, d.departure_date)})` : "";
   if (kind === "aek") {
     const greeting = d.head_of_delegation ? `Assalamo Alaikum ${d.head_of_delegation},` : "Assalamo Alaikum,";
-    return `${greeting}\n\nPlease share your travel details and itinerary for your visit to MKA UK (${d.name}) using this private link:\n${url}\n\nYou can update it at any time. JazakAllah.`;
+    return `${greeting}\n\nPlease share your travel details, the khuddam in your group, your daily plans and meal needs for your visit to MKA UK (${d.name}) using this private link:\n${url}\n\nEverything you send is saved, so you can come back and update it at any time. JazakAllah.`;
   }
   return `Assalamo Alaikum,\n\nHere is the Region Guidance for ${d.name}${dates}: arrival, accommodation, food and transport on one page.\n\nPlease add the drivers for the airport pickup (and the drop-off, if you know them yet) here:\n${url}\n\nYou can add to it over the next few days. JazakAllah.`;
 }

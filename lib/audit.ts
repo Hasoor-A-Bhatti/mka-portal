@@ -51,7 +51,11 @@ export function describe(entry: AuditEntry) {
   const noun = sub?.noun ?? dept?.noun ?? "record";
   const title = sub ? sub.title(data) : dept ? String(data[dept.titleField] ?? "") : "";
   // Changes made through an AeK link have no signed-in user.
-  const viaAek = entry.table_name === "delegation_aek_updates" || data.source === "aek";
+  const viaAek =
+    entry.table_name === "delegation_aek_updates" ||
+    data.source === "aek" ||
+    // The AeK's name and number are copied onto the delegation when they send the form.
+    (entry.table_name === "delegations" && !entry.actor && entry.action === "update" && headOnly(entry.old_data, entry.new_data));
   const viaRegion = entry.table_name === "delegation_drivers";
   const who =
     entry.actor?.full_name ?? (viaAek ? "The AeK (head of delegation)" : viaRegion ? "The region (Region Guidance link)" : "Someone");
@@ -78,4 +82,13 @@ export function describe(entry: AuditEntry) {
   }
 
   return { who, verb, noun, title, detail, dept };
+}
+
+/** True when an update only changed the head of delegation's name or number. */
+function headOnly(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
+  if (!before || !after) return false;
+  const changed = Object.keys(after).filter(
+    (k) => !["updated_at", "updated_by"].includes(k) && JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+  );
+  return changed.length > 0 && changed.every((k) => k === "head_of_delegation" || k === "head_contact");
 }

@@ -161,8 +161,73 @@ export type AekUpdate = {
   head_contact: string | null;
   members: number | null;
   notes: string | null;
+  /** Added in migration 0009; missing before it's run. */
+  activities?: AekActivities | null;
+  khuddam?: Khadim[] | null;
+  meal_requests?: MealRequests | null;
   submitted_at: string;
 };
+
+export const DAY_PARTS = [
+  { key: "morning", label: "Morning" },
+  { key: "afternoon", label: "Afternoon" },
+  { key: "evening", label: "Evening" },
+] as const;
+
+export type DayPart = (typeof DAY_PARTS)[number]["key"];
+
+/** What the AeK plans to do, by day. */
+export type AekActivities = Record<string, Partial<Record<DayPart, string>>>;
+
+/** The meals the AeK would like catered, by day. A listed day without a meal means it isn't needed. */
+export type MealRequests = Record<string, MealKey[]>;
+
+export type Khadim = { name?: string; flight?: string; allergy?: AllergyKey; allergy_note?: string };
+
+/** Matches public.aek_allergy_keys() in the database. */
+export const ALLERGIES = [
+  { key: "none", label: "No allergies" },
+  { key: "nuts", label: "Nuts (tree nuts)" },
+  { key: "peanuts", label: "Peanuts" },
+  { key: "gluten", label: "Gluten / wheat" },
+  { key: "dairy", label: "Dairy / milk" },
+  { key: "eggs", label: "Eggs" },
+  { key: "fish", label: "Fish" },
+  { key: "shellfish", label: "Shellfish" },
+  { key: "soya", label: "Soya" },
+  { key: "sesame", label: "Sesame" },
+  { key: "other", label: "Other, or more than one" },
+] as const;
+
+export type AllergyKey = (typeof ALLERGIES)[number]["key"];
+
+export const allergyLabel = (k: Khadim) => {
+  const base = ALLERGIES.find((a) => a.key === k.allergy)?.label ?? null;
+  if (!base || k.allergy === "none") return base;
+  return k.allergy_note ? `${base}: ${k.allergy_note}` : base;
+};
+
+/** "Nuts ×2 · Gluten ×1", or null when nobody has an allergy. */
+export function allergySummary(khuddam: Khadim[] | null | undefined): string | null {
+  const counts = new Map<string, number>();
+  for (const k of khuddam ?? []) {
+    if (!k.allergy || k.allergy === "none") continue;
+    const label = k.allergy === "other" ? (k.allergy_note || "Other") : ALLERGIES.find((a) => a.key === k.allergy)!.label.split(" (")[0];
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  if (!counts.size) return null;
+  return [...counts].map(([label, n]) => `${label} ×${n}`).join(" · ");
+}
+
+/**
+ * Whether the AeK wants this meal: true (asked for it), false (not needed),
+ * or null when they haven't said for that day.
+ */
+export function mealWanted(requests: MealRequests | null | undefined, day: string, meal: MealKey): boolean | null {
+  const list = requests?.[day];
+  if (!list) return null;
+  return list.includes(meal);
+}
 
 /**
  * When a link stops working: 7 days after departure, and never sooner than 14

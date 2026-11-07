@@ -6,6 +6,7 @@ import {
   Bus,
   CalendarDays,
   Clock4,
+  Hash,
   Info,
   MapPin,
   Phone,
@@ -65,6 +66,8 @@ type RegionView = {
     pickup: string | null;
     dropoff: string | null;
     driver: string | null;
+    /** Added to the brief in migration 0009. */
+    booking_ref?: string | null;
     notes: string | null;
   }[];
   meals: { day: string; meal: MealKey; location: string | null; menu: string | null }[];
@@ -327,9 +330,16 @@ function RegionBrief({ token, view }: { token: string; view: RegionView }) {
             {view.transport.map((t, i) => (
               <li key={i}>
                 <div className="region-list-main">
-                  <strong>
-                    {t.transport_type}
-                    {t.vehicle && ` · ${t.vehicle}`}
+                  <strong className="region-list-title">
+                    <span>
+                      {t.transport_type}
+                      {t.vehicle && ` · ${t.vehicle}`}
+                    </span>
+                    {t.booking_ref && (
+                      <span className="booking-ref" title="Booking reference">
+                        <Hash size={13} /> {t.booking_ref.replace(/^#\s*/, "")}
+                      </span>
+                    )}
                   </strong>
                   <span>
                     {t.start_date === t.end_date ? shortDay(t.start_date) : dayRange(t.start_date, t.end_date)}

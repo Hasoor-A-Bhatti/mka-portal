@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, CheckCircle2, Copy, Utensils } from "lucide-react";
-import { MEALS, fmtDay, type Meal, type MealKey } from "@/lib/delegations";
+import { AlertTriangle, Check, CheckCircle2, Copy, Utensils } from "lucide-react";
+import { AEK_TITLE, MEALS, fmtDay, mealWanted, type Meal, type MealKey, type MealRequests } from "@/lib/delegations";
+import { formatDateTime } from "@/lib/format";
 import { saveMealsDay, type MealInput } from "@/app/(portal)/[dept]/[id]/actions";
 import { FormError, useRun } from "@/components/fleet/ui";
 import { useCanEdit } from "@/components/edit-access";
@@ -27,21 +28,64 @@ export function MealsPanel({
   days,
   today,
   meals,
+  requests,
+  requestedAt,
+  allergies,
 }: {
   delegationId: string;
   days: string[];
   today: string;
   meals: Meal[];
+  /** What the AeK asked for, if they've said. */
+  requests: MealRequests | null;
+  requestedAt: string | null;
+  /** "Nuts ×2 · Gluten ×1" from the AeK's list of khuddam. */
+  allergies: string | null;
 }) {
   // Saved plans, kept here so totals update as soon as a day is saved.
   const [saved, setSaved] = useState(() => Object.fromEntries(days.map((d) => [d, planFor(d, meals)])) as Record<string, DayPlan>);
 
-  const total = days.length * MEALS.length;
+  // A meal counts unless the AeK said it isn't needed (and we haven't arranged it anyway).
+  const counts = (d: string, m: MealKey) => saved[d][m].catered || mealWanted(requests, d, m) !== false;
+  const total = days.reduce((n, d) => n + MEALS.filter((m) => counts(d, m.key)).length, 0);
   const catered = days.reduce((n, d) => n + MEALS.filter((m) => saved[d][m.key].catered).length, 0);
   const pct = total ? Math.round((catered / total) * 100) : 0;
+  const answered = requests ? days.filter((d) => requests[d]) : [];
+  const asked = answered.reduce((n, d) => n + requests![d].length, 0);
+  const skipped = answered.length * MEALS.length - asked;
 
   return (
     <>
+      {(answered.length > 0 || allergies) && (
+        <section className="panel glass aek-food">
+          <span className="aek-chip" title={AEK_TITLE}>
+            From AeK
+          </span>
+          <div>
+            {answered.length > 0 && (
+              <p>
+                <strong>
+                  {asked} meal{asked === 1 ? "" : "s"} requested
+                </strong>
+                {skipped > 0 && (
+                  <>
+                    {" "}
+                    · {skipped} not needed
+                  </>
+                )}
+                {answered.length < days.length && <> · {days.length - answered.length} day{days.length - answered.length === 1 ? "" : "s"} not answered</>}
+                {requestedAt && <small> · sent {formatDateTime(requestedAt)}</small>}
+              </p>
+            )}
+            {allergies && (
+              <p className="aek-allergies">
+                <AlertTriangle size={14} /> Allergies in the group: <strong>{allergies}</strong>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="panel glass meals-summary">
         <div className="meals-progress">
           <div>
@@ -58,12 +102,13 @@ export function MealsPanel({
         <ul className="meals-totals">
           {MEALS.map((m) => {
             const n = days.filter((d) => saved[d][m.key].catered).length;
+            const of = days.filter((d) => counts(d, m.key)).length;
             return (
-              <li key={m.key} className={n === days.length ? "is-done" : ""}>
+              <li key={m.key} className={n >= of ? "is-done" : ""}>
                 <span>{m.label}</span>
                 <strong>
                   {n}
-                  <small> / {days.length}</small>
+                  <small> / {of}</small>
                 </strong>
               </li>
             );
@@ -82,6 +127,7 @@ export function MealsPanel({
             isToday={day === today}
             saved={saved[day]}
             previous={i > 0 ? saved[days[i - 1]] : null}
+            wants={requests?.[day] ?? null}
             onSaved={(plan) => setSaved((s) => ({ ...s, [day]: plan }))}
           />
         ))}
@@ -98,6 +144,7 @@ function MealDay({
   isToday,
   saved,
   previous,
+  wants,
   onSaved,
 }: {
   delegationId: string;
@@ -107,6 +154,8 @@ function MealDay({
   isToday: boolean;
   saved: DayPlan;
   previous: DayPlan | null;
+  /** The meals the AeK asked for on this day, or null if they haven't said. */
+  wants: MealKey[] | null;
   onSaved: (plan: DayPlan) => void;
 }) {
   const [plan, setPlan] = useState<DayPlan>(saved);
@@ -117,6 +166,8 @@ function MealDay({
   const changed = MEALS.filter((m) => !same(plan[m.key], saved[m.key]));
   const dirty = changed.length > 0;
   const done = MEALS.filter((m) => plan[m.key].catered).length;
+  const skip = (m: MealKey) => Boolean(wants && !wants.includes(m) && !plan[m].catered);
+  const needed = MEALS.filter((m) => !skip(m.key)).length;
 
   const set = (meal: MealKey, patch: Partial<Entry>) => {
     setJustSaved(false);
@@ -137,7 +188,7 @@ function MealDay({
   const tag = index === 0 ? "Arrives" : index === count - 1 ? "Departs" : null;
 
   return (
-    <article className={`meal-day glass ${done === MEALS.length ? "is-complete" : ""} ${isToday ? "is-today" : ""}`}>
+    <article className={`meal-day glass ${done >= needed ? "is-complete" : ""} ${isToday ? "is-today" : ""}`}>
       <header className="meal-day-head">
         <span className="cal-date">
           <small>{fmtDay(day, { weekday: "short" })}</small>
@@ -152,9 +203,9 @@ function MealDay({
           <p>
             {isToday && <em className="planner-tag is-today">Today</em>}
             {tag && <em className="planner-tag">{tag}</em>}
-            <span className="meal-dots" aria-label={`${done} of 3 meals arranged`}>
+            <span className="meal-dots" aria-label={`${done} of ${needed} meals arranged`}>
               {MEALS.map((m) => (
-                <i key={m.key} className={plan[m.key].catered ? "on" : ""} />
+                <i key={m.key} className={plan[m.key].catered ? "on" : skip(m.key) ? "skip" : ""} />
               ))}
             </span>
           </p>
@@ -180,14 +231,26 @@ function MealDay({
           const e = plan[m.key];
           const id = `${day}-${m.key}`;
           return (
-            <div key={m.key} className={`meal-row ${e.catered ? "is-on" : ""}`}>
-              <label className="meal-check" htmlFor={id}>
-                <input id={id} type="checkbox" checked={e.catered} onChange={(ev) => set(m.key, { catered: ev.target.checked })} />
-                <span className="meal-box" aria-hidden>
-                  <Check size={13} strokeWidth={3} />
-                </span>
-                {m.label}
-              </label>
+            <div key={m.key} className={`meal-row ${e.catered ? "is-on" : ""} ${skip(m.key) ? "is-skip" : ""}`}>
+              <div className="meal-row-top">
+                <label className="meal-check" htmlFor={id}>
+                  <input id={id} type="checkbox" checked={e.catered} onChange={(ev) => set(m.key, { catered: ev.target.checked })} />
+                  <span className="meal-box" aria-hidden>
+                    <Check size={13} strokeWidth={3} />
+                  </span>
+                  {m.label}
+                </label>
+                {wants &&
+                  (wants.includes(m.key) ? (
+                    <span className="aek-chip" title={`The ${AEK_TITLE} asked for this meal`}>
+                      Requested
+                    </span>
+                  ) : (
+                    <span className="aek-chip is-muted" title={`The ${AEK_TITLE} said they don't need this meal`}>
+                      Not needed
+                    </span>
+                  ))}
+              </div>
               {e.catered && (
                 <div className="meal-fields">
                   <input
@@ -225,6 +288,10 @@ function MealDay({
         ) : justSaved ? (
           <span className="meal-saved">
             <CheckCircle2 size={15} /> Saved
+          </span>
+        ) : needed === 0 && done === 0 ? (
+          <span className="meal-none">
+            <Utensils size={14} /> No meals needed
           </span>
         ) : done === 0 ? (
           <span className="meal-none">

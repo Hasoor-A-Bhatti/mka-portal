@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   BedDouble,
+  CalendarRange,
   Bus,
   CalendarDays,
   ChevronRight,
@@ -20,6 +21,7 @@ import {
   Phone,
   Trash2,
   Upload,
+  UserRound,
   Users,
   Utensils,
 } from "lucide-react";
@@ -27,7 +29,10 @@ import { getDepartment, statusTone } from "@/lib/departments";
 import { ACCEPTED_FILES, MAX_FILE_BYTES, fileSize } from "@/lib/fleet";
 import {
   AEK_TITLE,
+  DAY_PARTS,
   aekTravelLine,
+  allergyLabel,
+  allergySummary,
   dayRange,
   daysLabel,
   fmtDay,
@@ -198,6 +203,10 @@ export function InfoPanel({
           )}
         </section>
 
+        <ActivitiesPanel update={u} hasLink={Boolean(aek.share.link)} />
+
+        <KhuddamPanel update={u} hasLink={Boolean(aek.share.link)} />
+
         <DriversPanel drivers={region.drivers} hasLink={Boolean(region.share.link)} />
 
         <ItineraryPanel delegationId={d.id} files={files} canManage={canManage} />
@@ -235,8 +244,8 @@ export function InfoPanel({
               icon={<Utensils size={18} />}
               label="Food"
               value={`${summary.meals} / ${summary.mealsTotal} meals`}
-              done={summary.meals === summary.mealsTotal}
-              ratio={summary.meals / summary.mealsTotal}
+              done={summary.meals >= summary.mealsTotal}
+              ratio={summary.mealsTotal ? summary.meals / summary.mealsTotal : 1}
             />
             <GlanceRow
               href={`${base}?tab=mulaqat`}
@@ -625,6 +634,124 @@ function DriversPanel({ drivers, hasLink }: { drivers: Driver[]; hasLink: boolea
           );
         })}
       </div>
+    </section>
+  );
+}
+
+// ---------- Activities and Khuddam (from the AeK link) ----------
+
+function AekPanelHead({ title, note, children }: { title: string; note: string; children?: ReactNode }) {
+  return (
+    <div className="panel-head">
+      <div>
+        <h2>{title}</h2>
+        <p className="muted-note">{note}</p>
+      </div>
+      {children ?? (
+        <span className="aek-chip" title={AEK_TITLE}>
+          From AeK
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ActivitiesPanel({ update: u, hasLink }: { update: AekUpdate | null; hasLink: boolean }) {
+  const days = Object.keys(u?.activities ?? {}).sort();
+  return (
+    <section className="panel glass">
+      <AekPanelHead title="Activities" note="What the delegation plans to do each day, sent by the AeK." />
+      {days.length === 0 ? (
+        <p className="muted-note">
+          <CalendarRange size={14} className="inline-icon" />{" "}
+          {u ? "The AeK hasn't added any activities yet." : hasLink ? "Waiting for the AeK to fill in their link." : "Share the AeK link so the AeK can add their plans."}
+        </p>
+      ) : (
+        <div className="table-scroll">
+          <table className="act-table">
+            <thead>
+              <tr>
+                <th scope="col">Day</th>
+                {DAY_PARTS.map((p) => (
+                  <th key={p.key} scope="col">
+                    {p.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day) => (
+                <tr key={day}>
+                  <th scope="row">{fmtDay(day, { weekday: "short", day: "numeric", month: "short" })}</th>
+                  {DAY_PARTS.map((p) => {
+                    const text = u!.activities![day]?.[p.key];
+                    return (
+                      <td key={p.key} data-label={p.label} className={text ? "" : "is-empty"}>
+                        {text ?? "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function KhuddamPanel({ update: u, hasLink }: { update: AekUpdate | null; hasLink: boolean }) {
+  const list = u?.khuddam ?? [];
+  const withAllergy = list.filter((k) => k.allergy && k.allergy !== "none").length;
+  const summary = allergySummary(list);
+  return (
+    <section className="panel glass">
+      <AekPanelHead title="Khuddam" note="Everyone in the group, with their flight and any allergy.">
+        <span className="khuddam-count">
+          <span className="aek-chip" title={AEK_TITLE}>
+            From AeK
+          </span>
+          {list.length > 0 && <span className="count-pill">{list.length}</span>}
+        </span>
+      </AekPanelHead>
+      {list.length === 0 ? (
+        <p className="muted-note">
+          {u ? "The AeK hasn't listed any khuddam yet." : hasLink ? "Waiting for the AeK to fill in their link." : "Share the AeK link so the AeK can list the group."}
+        </p>
+      ) : (
+        <>
+          {summary && (
+            <p className="aek-allergies">
+              <AlertTriangle size={14} /> {withAllergy} with allergies: <strong>{summary}</strong>
+            </p>
+          )}
+          <ul className="driver-list khadim-list">
+            {list.map((k, i) => {
+              const allergy = allergyLabel(k);
+              const has = Boolean(k.allergy && k.allergy !== "none");
+              return (
+                <li key={i}>
+                  <span className="avatar driver-avatar" aria-hidden>
+                    {(k.name ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || <UserRound size={14} />}
+                  </span>
+                  <div>
+                    <strong>{k.name ?? "Name not given"}</strong>
+                    <small>{k.flight ? <>Flight {k.flight}</> : "No flight given"}</small>
+                  </div>
+                  {allergy ? (
+                    <span className={`allergy-chip ${has ? "is-allergy" : "is-none"}`}>
+                      {has && <AlertTriangle size={12} />} {allergy}
+                    </span>
+                  ) : (
+                    <span className="allergy-chip is-unknown">Allergies not given</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

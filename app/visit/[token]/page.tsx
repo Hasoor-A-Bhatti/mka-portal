@@ -48,8 +48,9 @@ export default async function VisitPage({ params }: Props) {
             <span className="eyebrow">Your visit to MKA UK</span>
             <h1>{view.delegation.name}</h1>
             <p className="visit-lead">
-              Assalamo Alaikum. Please share your travel details and itinerary with the MKA Delegations team, so we can
-              arrange your welcome, transport and accommodation. You can come back to this page and update it at any time.
+              Assalamo Alaikum. Please share your travel details, your group, your plans for each day and the meals you&apos;d
+              like us to provide, so we can arrange your welcome, transport, accommodation and food. Fill in what you know now:
+              everything you send is kept here, so you can come back to this page and add to it or change it at any time.
             </p>
             {view.delegation.arrival_date && view.delegation.departure_date && (
               <p className="visit-planned">

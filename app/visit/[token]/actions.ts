@@ -20,6 +20,7 @@ function message(e: { message: string; code?: string } | null): string {
   if (!e) return "Something went wrong. Please try again.";
   if (e.code === "P0001") return e.message;
   if (e.code === "22007" || e.code === "22008") return "One of the dates or times isn't valid.";
+  if (e.code === "23514") return "Some of the details are too long. Please shorten them and try again.";
   return "Your details couldn't be saved. Please try again, or contact the MKA Delegations team.";
 }
 
@@ -48,8 +49,27 @@ export async function submitAek(token: string, fd: FormData): Promise<AekResult>
     return { error: "Departure can't be before arrival." };
   }
 
+  // Activities, Khuddam and Food arrive as JSON. The database cleans them too.
+  const plans: Record<string, unknown> = {};
+  for (const [k, kind, max] of [
+    ["activities", "object", 100_000],
+    ["khuddam", "array", 100_000],
+    ["meal_requests", "object", 20_000],
+  ] as const) {
+    const raw = String(fd.get(k) ?? "");
+    if (!raw) continue;
+    if (raw.length > max) return { error: k === "khuddam" ? "That's too many khuddam to send at once." : "One of the answers is too long." };
+    try {
+      const v = JSON.parse(raw);
+      if (kind === "array" ? !Array.isArray(v) : typeof v !== "object" || v === null || Array.isArray(v)) throw new Error();
+      plans[k] = v;
+    } catch {
+      return { error: "Something went wrong reading the form. Please reload the page and try again." };
+    }
+  }
+
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("aek_submit", { tok: token, p });
+  const { data, error } = await supabase.rpc("aek_submit", { tok: token, p: { ...p, ...plans } });
   if (error) return { error: message(error) };
   return { ok: true, savedAt: String(data) };
 }
