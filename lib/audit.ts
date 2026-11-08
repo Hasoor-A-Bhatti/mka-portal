@@ -41,6 +41,18 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
     title: (d) => (d.day ? `${String(d.meal ?? "")} on ${formatDate(d.day)}`.trim() : ""),
   },
   delegation_mulaqats: { noun: "a mulaqat", title: (d) => (d.mulaqat_date ? formatDate(d.mulaqat_date) : "") },
+  jaidat_records: { noun: "a checklist item", title: (d) => String(d.title ?? "") },
+  jaidat_compliance: { noun: "a compliance check", title: (d) => String(d.title ?? "") },
+  jaidat_insurance: { noun: "an insurance policy", title: (d) => String(d.cover_type ?? "") },
+  jaidat_issues: { noun: "ticket", title: (d) => [d.ref, d.title].filter(Boolean).join(" ") },
+  jaidat_issue_notes: { noun: "a work note", title: () => "" },
+  jaidat_quotes: { noun: "a quote", title: (d) => (d.amount != null ? `£${Number(d.amount).toFixed(2)}` : "") },
+  jaidat_contractors: { noun: "contractor", title: (d) => String(d.name ?? "") },
+  jaidat_contacts: { noun: "contact", title: (d) => String(d.full_name ?? "") },
+  jaidat_costs: { noun: "a cost", title: (d) => String(d.description ?? "") },
+  jaidat_inspections: { noun: "an inspection", title: (d) => (d.inspected_on ? formatDate(d.inspected_on) : "") },
+  jaidat_files: { noun: "a document", title: (d) => String(d.title ?? "") },
+  jaidat_requests: { noun: "a request to", title: (d) => String(d.person ?? "") },
 };
 
 /** Turns an audit row into a readable line: who, did what, to which record. */
@@ -57,8 +69,11 @@ export function describe(entry: AuditEntry) {
     // The AeK's name and number are copied onto the delegation when they send the form.
     (entry.table_name === "delegations" && !entry.actor && entry.action === "update" && headOnly(entry.old_data, entry.new_data));
   const viaRegion = entry.table_name === "delegation_drivers";
+  // Reports from the public Report an issue page have no signed-in user either.
+  const viaPublic = entry.table_name === "jaidat_issues" && data.source === "public" && entry.action === "insert";
   const who =
-    entry.actor?.full_name ?? (viaAek ? "The AeK (head of delegation)" : viaRegion ? "The region (Region Guidance link)" : "Someone");
+    entry.actor?.full_name ??
+    (viaAek ? "The AeK (head of delegation)" : viaRegion ? "The region (Region Guidance link)" : viaPublic ? `${String(data.reported_by ?? "Someone")} (public report)` : "Someone");
 
   const verb =
     entry.action === "insert" ? "added" : entry.action === "delete" ? "removed" : "updated";

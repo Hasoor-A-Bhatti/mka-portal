@@ -22,6 +22,16 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
 5. **AeK links.** Run `supabase/migrations/0007_aek_links.sql` (after `approved_access.sql`). Each delegation then gets an "AeK link" on its Info tab: a private page (`/visit/…`) where the Amir-e-Kafla (head of delegation) sends arrival and departure times, travel and contact details, and uploads their itinerary, without signing in. What they send shows as "Update from AeK" next to the Google Calendar dates; it never changes the calendar. Links stop working 7 days after departure, or when switched off.
 6. **Region Guidance.** Run `supabase/migrations/0008_region_guidance.sql`. Each delegation then gets a "Region Guidance" link (`/region/…`) for the local operator: one page with arrival and departure, contacts, accommodation, food and transport, where they add airport pickup drivers and, optionally, drop-off drivers (name, AIMS, phone). Drivers show on the delegation's Info tab. Both links can be made and shared from the AeK / Region buttons on each delegation in the list, or from the Info tab.
 7. **AeK plans.** Run `supabase/migrations/0009_aek_plans.sql`. The AeK link then also collects Activities (morning, afternoon and evening for each day), Khuddam (name, flight, allergies) and Food requirements (meals to cater each day). These show on the Info tab, meals the AeK doesn't need are marked "Not needed" on the Food tab, and the AeK's name and number become the Head of delegation. The Region Guidance brief also shows transport booking references.
+8. **Jaidat.** Run `supabase/migrations/0010_jaidat.sql`. MKA Jaidat then gets its own dashboard (`/jaidat`) for running the properties:
+   - **Properties** with JP references, ownership, verified addresses, leases, rooms and a building health score. The five current properties are added for you.
+   - **Tickets** for repairs and defects (INC-0001…), P1 to P4 with target dates, work notes, quotes, photos and email links.
+   - **Compliance**: a register of 19 safety checks and legal duties per property. Each starts as "to be confirmed" until someone decides whether it applies.
+   - **Insurance** policies and renewals.
+   - The **Records** checklist for gathering each property's documents, with who's responsible.
+   - **Inspections** and walk-rounds, where problems found become tickets.
+   - **Finance**: proposed, approved and paid amounts. Only the Jaidad department admin approves.
+   - **Contacts** and approved contractors, a **Documents** library (private uploads or Drive links), **Awaiting replies**, and a printable monthly report with a renewals calendar (.ics).
+   - Anyone can report a problem at **`/report`** without signing in. Reports arrive as new tickets.
 
 | Role | Can do |
 | --- | --- |

@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // /visit (AeK) and /region (Region Guidance) open from private links, without signing in.
-const PUBLIC_PATHS = ["/login", "/auth", "/visit", "/region"];
+// /report is the public Jaidat page where anyone can report a problem at a property.
+const PUBLIC_PATHS = ["/login", "/auth", "/visit", "/region", "/report"];
 
 /** Refreshes the session cookie on every request and guards private pages. */
 export async function updateSession(request: NextRequest) {
