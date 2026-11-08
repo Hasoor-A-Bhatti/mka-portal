@@ -30,6 +30,19 @@ export type SyncResult = {
   needsMigration?: boolean;
 };
 
+/**
+ * Delegations are created and listed from this date: anyone arriving, staying or
+ * leaving on or after it. Earlier ones stay in the database (Quick Stats still
+ * read them) but aren't created from the calendar or shown in the list.
+ */
+export const DELEGATIONS_FROM = "2026-11-01";
+
+/** True when a delegation is still around on or after DELEGATIONS_FROM. Undated ones count. */
+export function inDelegationWindow(arrival: string | null, departure: string | null) {
+  const last = departure ?? arrival;
+  return !last || last.slice(0, 10) >= DELEGATIONS_FROM;
+}
+
 // Transport bookings and airport runs sit on the same calendar but aren't delegations.
 const NOT_A_DELEGATION = [/\bseaters?\b/i, /\bairport\b/i, /\bpick\s*-?\s*up\b/i, /\bdrop\s*-?\s*off\b/i];
 
@@ -207,6 +220,8 @@ export async function syncDelegations(
     if (d.members !== null) wanted.members = d.members;
 
     if (!row) {
+      // Nothing is created for delegations that left before DELEGATIONS_FROM.
+      if (!inDelegationWindow(d.arrival, d.departure)) continue;
       inserts.push({ ...wanted, status: statusFor(d.arrival, d.departure, today, d.tbc) });
       continue;
     }

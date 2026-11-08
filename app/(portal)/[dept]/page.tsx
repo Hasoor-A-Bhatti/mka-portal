@@ -9,7 +9,7 @@ import { RecordsPanel, type RecordRow } from "@/components/records-panel";
 import { vars } from "@/lib/css";
 import { DelegationsCalendar } from "@/components/delegations-calendar";
 import { getCalendarEvents, londonDate, type CalendarResult } from "@/lib/google-calendar";
-import { syncDelegations, type SyncResult } from "@/lib/delegation-sync";
+import { inDelegationWindow, syncDelegations, type SyncResult } from "@/lib/delegation-sync";
 import type { StatDelegation, StatMeal, StatStay, StatTransport } from "@/lib/delegation-stats";
 import { QuickStats } from "@/components/delegations/quick-stats";
 import { headers } from "next/headers";
@@ -90,6 +90,10 @@ export default async function DepartmentPage({ params }: Params) {
   const aekIds = aekRows.map((r) => r.delegation_id);
 
   const records = (rows ?? []) as unknown as RecordRow[];
+  // The delegation list starts at 1 November 2026; Quick Stats still use every record.
+  const listed = showCalendar
+    ? records.filter((r) => inDelegationWindow((r.arrival_date as string | null) ?? null, (r.departure_date as string | null) ?? null))
+    : records;
   const counts = new Map<string, number>();
   records.forEach((r) => {
     const s = String(r[dept.statusField] ?? "");
@@ -218,7 +222,7 @@ export default async function DepartmentPage({ params }: Params) {
       )}
 
       <div className="split rise" style={vars({ "--i": "4" })}>
-        <RecordsPanel slug={slug} rows={records} canDelete={isManager(slug)} aekIds={showCalendar ? aekIds : undefined} share={share} />
+        <RecordsPanel slug={slug} rows={listed} canDelete={isManager(slug)} aekIds={showCalendar ? aekIds : undefined} share={share} />
 
         <section className="panel glass">
           <div className="panel-head">
