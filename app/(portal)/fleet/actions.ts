@@ -165,6 +165,8 @@ export async function addMileage(vehicleId: string, fd: FormData): Promise<Resul
 
     const reading = whole(fd, "reading", "Mileage", { required: true, max: 9_999_999 })!;
     const recordedOn = date(fd, "recorded_on", "Date", { required: true, notFuture: true })!;
+    // A starting reading resets the count, so it may be lower than earlier readings.
+    const isStart = c.manager && fd.get("is_start") === "on";
 
     // A reading can't be lower than an earlier one, or higher than a later one.
     const [{ data: before }, { data: after }] = await Promise.all([
@@ -175,7 +177,7 @@ export async function addMileage(vehicleId: string, fd: FormData): Promise<Resul
     ]);
     const prev = before?.[0];
     const next = after?.[0];
-    if (prev && reading < prev.reading) {
+    if (!isStart && prev && reading < prev.reading) {
       return { error: `That's lower than the ${prev.reading.toLocaleString("en-GB")} miles already recorded. Check the odometer.` };
     }
     if (next && reading > next.reading) {
@@ -187,10 +189,23 @@ export async function addMileage(vehicleId: string, fd: FormData): Promise<Resul
       reading,
       recorded_on: recordedOn,
       note: text(fd, "note", "Note", { max: 500 }),
+      ...(isStart ? { is_start: true } : {}),
     });
     if (error) return { error: friendly(error) };
     return done(vehicleId);
   });
+}
+
+/** Marks a reading as a starting point (or not). Miles are counted from the latest starting point. */
+export async function setMileageStart(vehicleId: string, id: string, isStart: boolean): Promise<Result> {
+  const c = await fleet(true);
+  if ("error" in c) return { error: c.error };
+  const { data, error } = await c.supabase.from("fleet_mileage_logs").update({ is_start: isStart }).eq("id", id).select("id");
+  if (error) {
+    return { error: error.code === "42703" || error.code === "PGRST204" ? "Run supabase/migrations/0012_fleet_mileage_start.sql in Supabase first." : friendly(error) };
+  }
+  if (!data?.length) return { error: "That reading couldn't be changed." };
+  return done(vehicleId);
 }
 
 export async function deleteMileage(vehicleId: string, id: string): Promise<Result> {

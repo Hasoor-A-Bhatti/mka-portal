@@ -64,7 +64,7 @@ export default async function FleetPage() {
       .from("fleet_incidents")
       .select("id, vehicle_id, incident_type, severity, status, occurred_at, not_drivable")
       .neq("status", "Resolved"),
-    supabase.from("fleet_mileage_logs").select("vehicle_id, reading, recorded_on, created_at"),
+    supabase.from("fleet_mileage_logs").select("*"),
   ]);
 
   const loadError = [vehiclesRes, filesRes, tasksRes, incidentsRes, logsRes].find((r) => r.error)?.error;

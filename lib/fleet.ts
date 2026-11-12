@@ -90,6 +90,8 @@ export type MileageLog = {
   reading: number;
   recorded_on: string;
   note: string | null;
+  /** The odometer when tracking began or restarted; not miles driven. */
+  is_start?: boolean;
   created_at: string;
   creator?: { full_name: string | null } | null;
 };
@@ -208,16 +210,36 @@ export const money = (n: number) =>
 
 // ---------- Mileage ----------
 
+type Reading = Pick<MileageLog, "reading" | "recorded_on" | "created_at" | "is_start">;
+
+/** Readings oldest first. */
+export function sortReadings<T extends Reading>(logs: T[]): T[] {
+  return [...logs].sort((a, b) => a.recorded_on.localeCompare(b.recorded_on) || a.created_at.localeCompare(b.created_at));
+}
+
+/**
+ * Readings that count towards miles driven: from the latest starting point
+ * onwards (the first ever reading is always a starting point). The starting
+ * reading itself is only the baseline.
+ */
+export function countedReadings<T extends Reading>(logs: T[]): T[] {
+  const sorted = sortReadings(logs);
+  let start = 0;
+  sorted.forEach((l, i) => {
+    if (l.is_start) start = i;
+  });
+  return sorted.slice(start);
+}
+
 /**
  * Miles driven this calendar year: latest reading minus the last reading
  * before 1 January (or the first reading this year, if there isn't one).
+ * Only readings since the latest starting point count.
  */
-export function milesThisYear(logs: Pick<MileageLog, "reading" | "recorded_on" | "created_at">[]): number {
-  if (logs.length < 2) return 0;
+export function milesThisYear(logs: Reading[]): number {
+  const sorted = countedReadings(logs);
+  if (sorted.length < 2) return 0;
   const year = todayISO().slice(0, 4);
-  const sorted = [...logs].sort(
-    (a, b) => a.recorded_on.localeCompare(b.recorded_on) || a.created_at.localeCompare(b.created_at),
-  );
   const latest = sorted[sorted.length - 1]!;
   if (!latest.recorded_on.startsWith(year)) return 0;
   const before = sorted.filter((l) => l.recorded_on < `${year}-01-01`);

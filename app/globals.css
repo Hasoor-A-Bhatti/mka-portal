@@ -9263,3 +9263,36 @@ a.jd-cell:hover {
     align-self: flex-start;
   }
 }
+
+/* Fleet: starting mileage readings */
+.mileage-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: #f6f5f9;
+}
+
+.mileage-start.is-current {
+  color: var(--purple-800);
+  background: linear-gradient(140deg, var(--gold-pale), #fff);
+  box-shadow: 0 0 0 1px rgba(212, 166, 63, 0.45);
+}
+
+.mileage-actions {
+  white-space: nowrap;
+}
+
+.icon-link.is-on {
+  color: var(--gold-text);
+  background: var(--gold-pale);
+}
+
+.mileage-figures small {
+  display: block;
+  font-size: 12px;
+}
