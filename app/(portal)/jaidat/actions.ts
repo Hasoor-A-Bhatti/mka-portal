@@ -207,6 +207,24 @@ export async function saveRooms(id: string, rooms: string[]): Promise<Result> {
   return save(c.supabase, "jaidat_properties", id, { rooms: clean }, "property");
 }
 
+/** How many people live at the property now. Stays until someone changes it. */
+export async function setResidents(id: string, residents: number): Promise<Result> {
+  const c = await jaidat("edit");
+  if ("error" in c) return { error: c.error };
+  if (!Number.isInteger(residents) || residents < 0 || residents > 500) return { error: "Residents must be a whole number from 0 to 500." };
+  const { data, error } = await c.supabase
+    .from("jaidat_properties")
+    .update({ residents, residents_updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    if (error.code === "42703" || error.code === "PGRST204") return { error: "Run supabase/migrations/0013_jaidat_residents.sql in Supabase first." };
+    return { error: friendly(error) };
+  }
+  if (!data?.length) return { error: "That property couldn't be saved." };
+  return done(id);
+}
+
 export async function deleteProperty(id: string): Promise<Result> {
   return remove("jaidat_properties", id, "property");
 }

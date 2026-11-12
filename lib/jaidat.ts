@@ -255,6 +255,8 @@ export type Property = Stamped & {
   location: string | null;
   initial_scope: boolean;
   capacity: number | null;
+  residents?: number | null;
+  residents_updated_at?: string | null;
   caretaker: string | null;
   caretaker_phone: string | null;
   rooms: string[];

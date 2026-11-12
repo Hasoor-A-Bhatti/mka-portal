@@ -33,6 +33,7 @@ import { RecordsPanel } from "@/components/jaidat/records-panel";
 import { InspectionsPanel } from "@/components/jaidat/inspections-panel";
 import { FinancePanel } from "@/components/jaidat/finance-panel";
 import { DocumentsPanel } from "@/components/jaidat/documents-panel";
+import { ResidentsSlider } from "@/components/jaidat/residents-slider";
 
 export const PROPERTY_TABS = [
   { key: "overview", label: "Overview" },
@@ -171,6 +172,7 @@ export function PropertyView({
                   <div className="panel-head">
                     <h2>Property details</h2>
                   </div>
+                  <ResidentsSlider propertyId={id} residents={p.residents ?? null} updatedAt={p.residents_updated_at ?? null} capacity={p.capacity} />
                   <dl className="kv">
                     <dt>Reference</dt>
                     <dd>{p.reference}</dd>

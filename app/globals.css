@@ -9296,3 +9296,136 @@ a.jd-cell:hover {
   display: block;
   font-size: 12px;
 }
+
+/* ---------- Jaidat: current residents slider ---------- */
+.jd-residents {
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--purple-50);
+  border: 1px solid var(--stroke);
+}
+
+.jd-residents-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.jd-residents-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.jd-residents-head strong {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--purple-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.jd-residents-head strong small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.jd-residents-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.jd-range {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.jd-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--purple-500) var(--fill, 0%), var(--purple-100) var(--fill, 0%));
+}
+
+.jd-range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--purple-100);
+}
+
+.jd-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--purple-500);
+}
+
+.jd-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--purple-600);
+  box-shadow: var(--raise-sm);
+}
+
+.jd-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--purple-600);
+  box-shadow: var(--raise-sm);
+}
+
+.jd-range:focus-visible {
+  outline: 2px solid var(--purple-500);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+.jd-range:disabled {
+  opacity: 0.6;
+}
+
+.jd-residents-bar {
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--purple-100);
+  overflow: hidden;
+}
+
+.jd-residents-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--purple-500);
+}
+
+.jd-residents-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.jd-residents-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}

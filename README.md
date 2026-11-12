@@ -34,6 +34,7 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
    - Anyone can report a problem at **`/report`** without signing in. Reports arrive as new tickets.
 9. **V5C logbooks.** Run `supabase/migrations/0011_fleet_v5c.sql`. Each vehicle's Documents tab then has a V5C logbook card next to insurance, MOT and road tax. Department admins upload it; it doesn't expire.
 10. **Starting mileage.** Run `supabase/migrations/0012_fleet_mileage_start.sql`. A mileage reading can be marked as a starting point (the odometer when tracking began), and miles driven are only counted after it. The first time it runs, each vehicle's latest reading becomes its starting point.
+11. **Jaidat residents.** Run `supabase/migrations/0013_jaidat_residents.sql`. Each property's Overview then has a "Current residents" slider: drag it (or use − / +) and Save. The number stays until someone changes it. Only the count is kept, never names.
 
 | Role | Can do |
 | --- | --- |
