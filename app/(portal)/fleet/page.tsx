@@ -58,7 +58,7 @@ export default async function FleetPage() {
       .from("fleet_vehicles")
       .select("*, key_holder:fleet_drivers!fleet_vehicles_key_holder_id_fkey(full_name)")
       .order("registration"),
-    supabase.from("fleet_files").select("vehicle_id, kind, expires_on, created_at").in("kind", ["insurance", "mot", "road_tax"]),
+    supabase.from("fleet_files").select("vehicle_id, kind, expires_on, created_at").in("kind", DOC_KINDS.map((d) => d.kind)),
     supabase.from("fleet_maintenance").select("id, vehicle_id, description, due_date, status, cost, completed_on"),
     supabase
       .from("fleet_incidents")
@@ -95,7 +95,7 @@ export default async function FleetPage() {
 
     const docs = latestDocs(files.filter((f) => f.vehicle_id === v.id));
     const docStates: Record<string, DocState> = {};
-    for (const { kind, label } of DOC_KINDS) {
+    for (const { kind, label, noun } of DOC_KINDS) {
       const f = docs.get(kind);
       const s = docState(f, today);
       docStates[kind] = s;
@@ -109,7 +109,7 @@ export default async function FleetPage() {
         push({ level: "warn", href: `${href}?tab=documents`, text: `${label} expires in ${d} day${d === 1 ? "" : "s"}`, sort: f!.expires_on! });
       } else if (s === "Missing" && v.status === "Active") {
         docProblems++;
-        push({ level: "warn", href: `${href}?tab=documents`, text: `No ${label === "MOT" ? "MOT" : label.toLowerCase()} document on file`, sort: "9998" });
+        push({ level: "warn", href: `${href}?tab=documents`, text: `No ${noun} on file`, sort: "9998" });
       }
     }
 

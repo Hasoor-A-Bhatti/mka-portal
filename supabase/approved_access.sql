@@ -255,7 +255,9 @@ insert into public.approved_users (email, full_name, is_admin) values
   ('specialarrangments@khuddam.co.uk',   'Fateh Rasheed',  false),
   ('sadr@khuddam.co.uk',                 null,             false),  -- name comes from their Google account
   ('mobushar.raja@khuddam.co.uk',        'Mobushar Raja',  false),
-  ('ansar.bajwa@khuddam.co.uk',          'Ansar Bajwa',    false)
+  ('ansar.bajwa@khuddam.co.uk',          'Ansar Bajwa',    false),
+  ('add.delegations@khuddam.co.uk',      'Talmees Ahmad',  false),
+  ('admin.delegations@khuddam.co.uk',    null,             false)   -- name comes from their Google account
 on conflict (email) do update
 set full_name = coalesce(excluded.full_name, approved_users.full_name),
     is_admin  = excluded.is_admin;
@@ -274,6 +276,8 @@ cross join public.departments d          -- every department, view only
 union all
 select * from (values
   ('delegations@khuddam.co.uk',        'delegations',          'manager'),
+  ('add.delegations@khuddam.co.uk',    'delegations',          'manager'),
+  ('admin.delegations@khuddam.co.uk',  'delegations',          'viewer'),
   ('fleet@khuddam.co.uk',              'fleet',                'manager'),
   ('jaidad@khuddam.co.uk',             'jaidat',               'manager'),
   ('stores@khuddam.co.uk',             'storage',              'manager'),

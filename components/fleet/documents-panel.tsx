@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, FileCheck2, ShieldCheck, Wrench } from "lucide-react";
+import { BookText, CalendarClock, FileCheck2, ShieldCheck, Wrench } from "lucide-react";
 import { DOC_KINDS, daysUntil, docState, type DocKind, type FleetFile } from "@/lib/fleet";
 import { formatDate } from "@/lib/format";
 import { updateFileExpiry } from "@/app/(portal)/fleet/actions";
@@ -12,6 +12,7 @@ const ICONS: Record<DocKind, typeof ShieldCheck> = {
   insurance: ShieldCheck,
   mot: Wrench,
   road_tax: FileCheck2,
+  v5c: BookText,
 };
 
 export function DocumentsPanel({
@@ -25,7 +26,7 @@ export function DocumentsPanel({
 }) {
   return (
     <div className="doc-grid">
-      {DOC_KINDS.map(({ kind, label }) => {
+      {DOC_KINDS.map(({ kind, label, expires }) => {
         const all = files
           .filter((f) => f.kind === kind)
           .sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -40,7 +41,7 @@ export function DocumentsPanel({
               </span>
               <div>
                 <h2>{label}</h2>
-                <ExpiryLine file={current} />
+                {expires ? <ExpiryLine file={current} /> : <p className="doc-sub">{current ? "On file · doesn\u2019t expire" : "Nothing on file"}</p>}
               </div>
               <Pill value={state} />
             </div>
@@ -48,13 +49,18 @@ export function DocumentsPanel({
             {current ? (
               <FileList files={[current]} vehicleId={vehicleId} canDelete={canManage} />
             ) : (
-              <p className="muted-note">No {label.toLowerCase()} document uploaded yet.</p>
+              <p className="muted-note">No {kind === "v5c" ? "V5C logbook" : `${label.toLowerCase()} document`} uploaded yet.</p>
             )}
 
             {canManage && (
               <div className="doc-actions">
-                <UploadButton vehicleId={vehicleId} kind={kind} askExpiry label={current ? "Upload new version" : `Upload ${label.toLowerCase()}`} />
-                {current && <ExpiryEditor vehicleId={vehicleId} file={current} />}
+                <UploadButton
+                  vehicleId={vehicleId}
+                  kind={kind}
+                  askExpiry={expires}
+                  label={current ? "Upload new version" : `Upload ${kind === "v5c" ? "V5C logbook" : label.toLowerCase()}`}
+                />
+                {current && expires && <ExpiryEditor vehicleId={vehicleId} file={current} />}
               </div>
             )}
 

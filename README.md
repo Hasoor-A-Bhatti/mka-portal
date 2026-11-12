@@ -32,6 +32,7 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
    - **Finance**: proposed, approved and paid amounts. Only the Jaidad department admin approves.
    - **Contacts** and approved contractors, a **Documents** library (private uploads or Drive links), **Awaiting replies**, and a printable monthly report with a renewals calendar (.ics).
    - Anyone can report a problem at **`/report`** without signing in. Reports arrive as new tickets.
+9. **V5C logbooks.** Run `supabase/migrations/0011_fleet_v5c.sql`. Each vehicle's Documents tab then has a V5C logbook card next to insurance, MOT and road tax. Department admins upload it; it doesn't expire.
 
 | Role | Can do |
 | --- | --- |

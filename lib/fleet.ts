@@ -7,13 +7,16 @@ export const INCIDENT_TYPES = ["Accident", "Damage", "Breakdown", "Theft or brea
 export const SEVERITIES = ["Minor", "Moderate", "Major"] as const;
 export const INCIDENT_STATUSES = ["Open", "Under review", "Resolved"] as const;
 
+/** Documents kept for every vehicle. The V5C logbook doesn't expire. */
 export const DOC_KINDS = [
-  { kind: "insurance", label: "Insurance" },
-  { kind: "mot", label: "MOT" },
-  { kind: "road_tax", label: "Road tax" },
+  { kind: "insurance", label: "Insurance", short: "Ins", noun: "insurance document", expires: true },
+  { kind: "mot", label: "MOT", short: "MOT", noun: "MOT certificate", expires: true },
+  { kind: "road_tax", label: "Road tax", short: "Tax", noun: "road tax record", expires: true },
+  { kind: "v5c", label: "V5C logbook", short: "V5C", noun: "V5C logbook", expires: false },
 ] as const;
 
 export type DocKind = (typeof DOC_KINDS)[number]["kind"];
+export const isDocKind = (k: string): k is DocKind => DOC_KINDS.some((d) => d.kind === k);
 export type FileKind = DocKind | "receipt" | "incident";
 
 export const ACCEPTED_FILES = "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif";
@@ -240,7 +243,7 @@ export function docState(file: Pick<FleetFile, "expires_on"> | undefined, today 
 export function latestDocs<T extends Pick<FleetFile, "kind" | "created_at">>(files: T[]) {
   const out = new Map<DocKind, T>();
   for (const f of files) {
-    if (f.kind !== "insurance" && f.kind !== "mot" && f.kind !== "road_tax") continue;
+    if (!isDocKind(f.kind)) continue;
     const cur = out.get(f.kind);
     if (!cur || f.created_at > cur.created_at) out.set(f.kind, f);
   }

@@ -103,9 +103,9 @@ export function VehicleGrid({ vehicles }: { vehicles: VehicleCard[] }) {
                   <KeyRound size={14} /> {v.keyHolder ?? "In the office"}
                 </span>
                 <span className="vc-docs" aria-label="Documents">
-                  {DOC_KINDS.map(({ kind, label }) => (
+                  {DOC_KINDS.map(({ kind, label, short }) => (
                     <span key={kind} className={`doc-dot ${DOT[v.docs[kind] ?? "Missing"]}`} title={`${label}: ${v.docs[kind] ?? "Missing"}`}>
-                      {label === "Road tax" ? "Tax" : label === "Insurance" ? "Ins" : label}
+                      {short}
                     </span>
                   ))}
                 </span>

@@ -7,6 +7,7 @@ import { getDepartment } from "@/lib/departments";
 import {
   DOC_KINDS,
   docState,
+  isDocKind,
   formatPlate,
   latestDocs,
   miles,
@@ -212,7 +213,7 @@ export default async function VehiclePage({ params, searchParams }: Props) {
           />
         )}
         {tab === "documents" && (
-          <DocumentsPanel vehicleId={id} files={files.filter((f) => f.kind === "insurance" || f.kind === "mot" || f.kind === "road_tax")} canManage={canManage} />
+          <DocumentsPanel vehicleId={id} files={files.filter((f) => isDocKind(f.kind))} canManage={canManage} />
         )}
         {tab === "mileage" && <MileagePanel vehicleId={id} current={vehicle.mileage} logs={logs} canManage={canManage} />}
         {tab === "maintenance" && (
