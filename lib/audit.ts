@@ -53,6 +53,14 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
   jaidat_inspections: { noun: "an inspection", title: (d) => (d.inspected_on ? formatDate(d.inspected_on) : "") },
   jaidat_files: { noun: "a document", title: (d) => String(d.title ?? "") },
   jaidat_requests: { noun: "a request to", title: (d) => String(d.person ?? "") },
+  storage_locations: { noun: "storage location", title: (d) => String(d.name ?? "") },
+  storage_movements: {
+    noun: "a stock change",
+    title: (d) => [d.kind, d.change ? (Number(d.change) > 0 ? `+${d.change}` : String(d.change)) : null].filter(Boolean).join(" "),
+  },
+  storage_loans: { noun: "loan request", title: (d) => [d.ref, d.item_name, d.status && d.status !== "Pending" ? `(${d.status})` : null].filter(Boolean).join(" ") },
+  storage_loan_messages: { noun: "a message on a loan request", title: () => "" },
+  storage_borrowers: { noun: "borrower", title: (d) => String(d.full_name ?? d.email ?? "") },
 };
 
 /** Turns an audit row into a readable line: who, did what, to which record. */

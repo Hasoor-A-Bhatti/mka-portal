@@ -35,6 +35,13 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
 9. **V5C logbooks.** Run `supabase/migrations/0011_fleet_v5c.sql`. Each vehicle's Documents tab then has a V5C logbook card next to insurance, MOT and road tax. Department admins upload it; it doesn't expire.
 10. **Starting mileage.** Run `supabase/migrations/0012_fleet_mileage_start.sql`. A mileage reading can be marked as a starting point (the odometer when tracking began), and miles driven are only counted after it. The first time it runs, each vehicle's latest reading becomes its starting point.
 11. **Jaidat residents.** Run `supabase/migrations/0013_jaidat_residents.sql`. Each property's Overview then has a "Current residents" slider: drag it (or use − / +) and Save. The number stays until someone changes it. Only the count is kept, never names.
+12. **Storage and Equipment Loans.** Run `supabase/migrations/0014_storage_loans.sql`, then run `supabase/approved_access.sql` again. MKA Storage then has:
+   - **Inventory** across the 11 stores (added for you), with each item's location, owner (the department it belongs to), quantity and low-stock level. Stock changes (add, remove, mark missing, found, write off, stock take) are kept in each item's history.
+   - **Locations**, grouped by site, each showing what's in it.
+   - **Loan requests**: the Storage department admin approves or rejects them, with an optional message. The team marks items collected and returned. Two loans can't take more than is held on the same days.
+   - **Messages** with borrowers, one conversation per request.
+   - **Borrowers**: the Storage department admin adds department leads by email. They sign in with Google and see only **Equipment Loans** (`/equipment-loans`), where they search the catalogue (what, where, whose and how many are free for their dates), request an item for a date range, and follow it through Pending, My loans and Messages.
+13. **Borrowers from the directory.** Run `supabase/migrations/0015_loan_borrowers_directory.sql`. Everyone in the 2026/27 National Amila and Regional Qaideen directory can then request equipment. It only adds Equipment Loans: anyone's existing access stays as it is.
 
 | Role | Can do |
 | --- | --- |

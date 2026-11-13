@@ -3,6 +3,7 @@ import {
   CalendarCheck,
   Car,
   Handshake,
+  PackageSearch,
   Warehouse,
   type LucideIcon,
 } from "lucide-react";
@@ -174,7 +175,7 @@ export const DEPARTMENTS: Department[] = [
     slug: "storage",
     name: "MKA Storage",
     short: "Storage",
-    description: "Stock, equipment and where everything is kept.",
+    description: "Inventory across every store, and equipment loans to other departments.",
     icon: Warehouse,
     accent: "#b4592a",
     table: "storage_items",
@@ -182,16 +183,39 @@ export const DEPARTMENTS: Department[] = [
     plural: "items",
     titleField: "item_name",
     statusField: "status",
-    statuses: ["In stock", "Low stock", "Reserved", "Out of stock"],
-    focus: { label: "low or out", statuses: ["Low stock", "Out of stock"] },
+    statuses: ["In stock", "Low stock", "Out of stock", "Missing"],
+    focus: { label: "low, out or missing", statuses: ["Low stock", "Out of stock", "Missing"] },
     orderBy: "item_name",
     fields: [
       { name: "item_name", label: "Item", type: "text", required: true, inTable: true },
       { name: "category", label: "Category", type: "text", inTable: true },
       { name: "location", label: "Location", type: "text", inTable: true },
       { name: "quantity", label: "Quantity", type: "number", required: true, inTable: true },
-      { name: "status", label: "Status", type: "select", required: true, options: ["In stock", "Low stock", "Reserved", "Out of stock"] },
+      { name: "status", label: "Status", type: "select", required: true, options: ["In stock", "Low stock", "Out of stock", "Missing"] },
       { name: "notes", label: "Notes", type: "textarea", wide: true },
+    ],
+  },
+  {
+    // Borrowers' own area: department leads on the borrowers list (managed on the Storage page).
+    slug: "equipment-loans",
+    name: "Equipment Loans",
+    short: "Loans",
+    description: "Find equipment held by MKA Storage and ask to borrow it.",
+    icon: PackageSearch,
+    accent: "#2f6f8f",
+    table: "storage_loans",
+    noun: "loan request",
+    plural: "loan requests",
+    titleField: "item_name",
+    statusField: "status",
+    statuses: ["Pending", "Approved", "Collected", "Returned", "Rejected", "Cancelled"],
+    focus: { label: "awaiting approval", statuses: ["Pending"] },
+    orderBy: "created_at",
+    fields: [
+      { name: "item_name", label: "Item", type: "text", required: true, inTable: true },
+      { name: "start_date", label: "From", type: "date", inTable: true },
+      { name: "end_date", label: "To", type: "date", inTable: true },
+      { name: "status", label: "Status", type: "select", required: true, options: ["Pending", "Approved", "Collected", "Returned", "Rejected", "Cancelled"] },
     ],
   },
 ];
@@ -210,11 +234,11 @@ const TONES: Record<string, string> = {
   // Moving
   Assigned: "#3f51c9", "In progress": "#3f51c9", Planned: "#3f51c9", Reserved: "#3f51c9",
   // Needs attention
-  "Low stock": "#9a6600", "Under maintenance": "#9a6600", "In service": "#9a6600", Requested: "#9a6600", "Off road": "#9a6600",
+  "Low stock": "#9a6600", Pending: "#9a6600", "Under maintenance": "#9a6600", "In service": "#9a6600", Requested: "#9a6600", "Off road": "#9a6600",
   // Stopped
-  Cancelled: "#c43a3a", "Out of stock": "#c43a3a", Disposed: "#c43a3a", Damaged: "#c43a3a", Sold: "#6b6383",
+  Cancelled: "#c43a3a", "Out of stock": "#c43a3a", Missing: "#c43a3a", Rejected: "#c43a3a", Disposed: "#c43a3a", Damaged: "#c43a3a", Sold: "#6b6383",
   // Finished
-  Departed: "#6b6383", Completed: "#6b6383", Vacant: "#6b6383",
+  Departed: "#6b6383", Completed: "#6b6383", Vacant: "#6b6383", Returned: "#6b6383", Collected: "#3f51c9", Approved: "#3f51c9",
 };
 
 export function statusTone(status: unknown): string {

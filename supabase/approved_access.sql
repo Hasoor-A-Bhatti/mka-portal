@@ -273,6 +273,7 @@ from (values
   ('mobushar.raja@khuddam.co.uk')
 ) as o(email)
 cross join public.departments d          -- every department, view only
+where d.slug <> 'equipment-loans'        -- borrowers only: managed on the Storage page
 union all
 select * from (values
   ('delegations@khuddam.co.uk',        'delegations',          'manager'),

@@ -55,7 +55,8 @@ export function Nav({ slugs, variant }: Props) {
         );
       })}
 
-      {departments.length > 0 && (
+      {/* Borrowers who only have Equipment Loans have no activity log to see. */}
+      {departments.some((d) => d.slug !== "equipment-loans") && (
         <>
           {variant === "sidebar" && <div className="nav-group">Records</div>}
           <Link
