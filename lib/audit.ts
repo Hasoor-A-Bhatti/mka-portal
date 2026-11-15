@@ -61,6 +61,8 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
   storage_loans: { noun: "loan request", title: (d) => [d.ref, d.item_name, d.status && d.status !== "Pending" ? `(${d.status})` : null].filter(Boolean).join(" ") },
   storage_loan_messages: { noun: "a message on a loan request", title: () => "" },
   storage_borrowers: { noun: "borrower", title: (d) => String(d.full_name ?? d.email ?? "") },
+  // Special Arrangements' old list, before its inventory (0016).
+  special_arrangements: { noun: "arrangement", title: (d) => String(d.title ?? "") },
 };
 
 /** Turns an audit row into a readable line: who, did what, to which record. */

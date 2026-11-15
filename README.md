@@ -42,6 +42,7 @@ MKA Portal: the internal portal for five sub-departments: Delegations, Fleet, Ja
    - **Messages** with borrowers, one conversation per request.
    - **Borrowers**: the Storage department admin adds department leads by email. They sign in with Google and see only **Equipment Loans** (`/equipment-loans`), where they search the catalogue (what, where, whose and how many are free for their dates), request an item for a date range, and follow it through Pending, My loans and Messages.
 13. **Borrowers from the directory.** Run `supabase/migrations/0015_loan_borrowers_directory.sql`. Everyone in the 2026/27 National Amila and Regional Qaideen directory can then request equipment. It only adds Equipment Loans: anyone's existing access stays as it is.
+14. **Special Arrangements inventory.** Run `supabase/migrations/0016_special_items.sql`. MKA Special Arrangements then keeps an inventory of special items stored by MKA: item, quantity, location and notes, each marked Available, Unavailable or Damaged. The status can be changed straight from the table. Department staff add and edit items; only the department admin can remove one. There are no bookings. The old arrangements list stays in the database but isn't shown.
 
 | Role | Can do |
 | --- | --- |
