@@ -1,31 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MapPin, Pencil, Plus } from "lucide-react";
+import dynamic from "next/dynamic";
+import { List, Map as MapIcon, MapPin, Pencil, Plus } from "lucide-react";
 import { bySite, type Item, type Location } from "@/lib/storage";
 import { deleteLocation, saveLocation } from "@/app/(portal)/storage/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 
+// Leaflet needs the browser, and is only downloaded when the map is opened.
+const LocationsMap = dynamic(() => import("./locations-map"), {
+  ssr: false,
+  loading: () => <div className="st-map-canvas st-map-loading">Loading the map…</div>,
+});
+
+const VIEW_KEY = "mka.storage.locationsView";
+
 export function LocationsPanel({ locations, items, canManage }: { locations: Location[]; items: Item[]; canManage: boolean }) {
   const [editing, setEditing] = useState<{ loc: Location | null } | null>(null);
   const unplaced = items.filter((i) => !i.location_id);
+  // Map positions exist once 0017 has been run.
+  const mapReady = locations.some((l) => "latitude" in l);
+  const [view, setView] = useState<"list" | "map">("list");
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(VIEW_KEY) === "map") setView("map");
+    } catch {}
+  }, []);
+  const choose = (v: "list" | "map") => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {}
+  };
+  const showMap = view === "map" && mapReady;
 
   return (
     <section className="panel glass">
       <div className="panel-head">
         <h2>Locations</h2>
-        {canManage && (
-          <button type="button" className="btn btn-primary" onClick={() => setEditing({ loc: null })}>
-            <Plus size={17} /> Add location
-          </button>
-        )}
+        <div className="toolbar">
+          {mapReady && (
+            <div className="st-view-toggle" role="group" aria-label="Show as">
+              <button type="button" aria-pressed={!showMap} onClick={() => choose("list")}>
+                <List size={15} /> List
+              </button>
+              <button type="button" aria-pressed={showMap} onClick={() => choose("map")}>
+                <MapIcon size={15} /> Map
+              </button>
+            </div>
+          )}
+          {canManage && (
+            <button type="button" className="btn btn-primary" onClick={() => setEditing({ loc: null })}>
+              <Plus size={17} /> Add location
+            </button>
+          )}
+        </div>
       </div>
       <p className="muted-note" style={{ marginBottom: 14 }}>
-        Every store and what&apos;s in it. Open one to see its inventory.
+        {showMap ? "Click a pin to see what's stored there." : "Every store and what's in it. Open one to see its inventory."}
       </p>
 
-      {bySite(locations).map(([site, list]) => (
+      {showMap && <LocationsMap locations={locations} items={items} canManage={canManage} />}
+
+      {!showMap && bySite(locations).map(([site, list]) => (
         <div key={site} className="st-site">
           <h3 className="jd-group-title">{site}</h3>
           <ul className="st-locations">
@@ -77,15 +116,15 @@ export function LocationsPanel({ locations, items, canManage }: { locations: Loc
         </p>
       )}
 
-      {editing && <LocationDialog loc={editing.loc} sites={[...new Set(locations.map((l) => l.site).filter((s): s is string => Boolean(s)))]} onClose={() => setEditing(null)} />}
+      {editing && <LocationDialog loc={editing.loc} mapReady={mapReady} sites={[...new Set(locations.map((l) => l.site).filter((s): s is string => Boolean(s)))]} onClose={() => setEditing(null)} />}
     </section>
   );
 }
 
-function LocationDialog({ loc: l, sites, onClose }: { loc: Location | null; sites: string[]; onClose: () => void }) {
+function LocationDialog({ loc: l, sites, mapReady, onClose }: { loc: Location | null; sites: string[]; mapReady: boolean; onClose: () => void }) {
   const { pending, error, run } = useRun();
   return (
-    <Sheet title={l ? `Edit ${l.name}` : "Add a location"} subtitle="Locations are grouped by site." onClose={onClose}>
+    <Sheet title={l ? `Edit ${l.name}` : "Add a location"} subtitle={mapReady ? "Locations are grouped by site. Place its pin from the map view." : "Locations are grouped by site."} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -108,6 +147,12 @@ function LocationDialog({ loc: l, sites, onClose }: { loc: Location | null; site
               ))}
             </datalist>
           </div>
+          {mapReady && (
+            <div className="field">
+              <label htmlFor="lc-place">Town</label>
+              <input id="lc-place" name="place" className="input" maxLength={80} defaultValue={l?.place ?? ""} placeholder="e.g. Farnham" />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="lc-pos">Order</label>
             <input id="lc-pos" name="position" className="input" type="number" min={0} defaultValue={l?.position ?? 200} />

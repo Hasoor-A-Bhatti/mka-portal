@@ -44,6 +44,10 @@ export type Location = Stamped & {
   position: number;
   notes: string | null;
   active: boolean;
+  /** Town shown on the map (0017). */
+  place?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type Item = Stamped & {

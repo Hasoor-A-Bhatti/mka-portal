@@ -86,6 +86,8 @@ export async function saveLocation(id: string | null, fd: FormData): Promise<Res
       position: whole(fd, "position", "Order", { max: 10000 }) ?? 0,
       notes: text(fd, "notes", "Notes", { max: 1000 }),
       active: !checked(fd, "closed"),
+      // Only sent once 0017 has added map positions.
+      ...(fd.has("place") ? { place: text(fd, "place", "Town", { max: 80 }) } : {}),
     };
     const { data, error } = id
       ? await c.supabase.from("storage_locations").update(payload).eq("id", id).select("id")
@@ -94,6 +96,26 @@ export async function saveLocation(id: string | null, fd: FormData): Promise<Res
     if (!data?.length) return { error: "That location couldn't be saved." };
     return done(data[0].id);
   });
+}
+
+/** Puts a location's pin on the map (or takes it off, with nulls). */
+export async function setLocationPin(id: string, latitude: number | null, longitude: number | null): Promise<Result> {
+  const c = await storage("manage");
+  if ("error" in c) return { error: c.error };
+  if (!isId(id)) return { error: "Pick a location." };
+  const off = latitude === null || longitude === null;
+  if (!off && (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude!) > 90 || Math.abs(longitude!) > 180)) {
+    return { error: "That isn't a place on the map." };
+  }
+  const round = (n: number | null) => (n === null ? null : Math.round(n * 1e5) / 1e5);
+  const { data, error } = await c.supabase
+    .from("storage_locations")
+    .update({ latitude: off ? null : round(latitude), longitude: off ? null : round(longitude) })
+    .eq("id", id)
+    .select("id");
+  if (error) return { error: ["42703", "PGRST204"].includes(error.code ?? "") ? "Run supabase/migrations/0017_storage_location_map.sql in Supabase first." : friendly(error) };
+  if (!data?.length) return { error: "That location couldn't be moved." };
+  return done(id);
 }
 
 export async function deleteLocation(id: string): Promise<Result> {
