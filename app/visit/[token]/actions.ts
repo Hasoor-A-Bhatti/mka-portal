@@ -93,3 +93,36 @@ export async function registerAekFile(
   }
   return { ok: true };
 }
+
+export type ReturnJourney = {
+  id: string;
+  departure_date: string;
+  departure_time: string;
+  departure_flight: string;
+  departure_place: string;
+  needs_dropoff: boolean;
+};
+
+/** Saves each person's return journey. The database checks the link and that each person is in this delegation. */
+export async function submitReturnJourneys(token: string, rows: ReturnJourney[]): Promise<AekResult> {
+  if (!Array.isArray(rows) || rows.length > 1000) return { error: "Something went wrong reading the list. Please reload the page and try again." };
+  const clean = [];
+  for (const r of rows) {
+    const d = String(r.departure_date ?? "").trim();
+    const t = String(r.departure_time ?? "").trim().slice(0, 5);
+    if (d && !DATE.test(d)) return { error: "One of the dates isn't valid." };
+    if (t && !TIME.test(t)) return { error: "One of the times isn't valid." };
+    clean.push({
+      id: String(r.id),
+      departure_date: d,
+      departure_time: t,
+      departure_flight: String(r.departure_flight ?? "").trim().slice(0, 40),
+      departure_place: String(r.departure_place ?? "").trim().slice(0, 80),
+      needs_dropoff: Boolean(r.needs_dropoff),
+    });
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("aek_save_travellers", { tok: token, p: clean });
+  if (error) return { error: message(error) };
+  return { ok: true, savedAt: String(data) };
+}

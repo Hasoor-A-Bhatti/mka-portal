@@ -40,6 +40,7 @@ const SUB_TABLES: Record<string, { noun: string; title: (d: Record<string, unkno
     noun: "a meal",
     title: (d) => (d.day ? `${String(d.meal ?? "")} on ${formatDate(d.day)}`.trim() : ""),
   },
+  delegation_travellers: { noun: "traveller", title: (d) => String(d.full_name ?? "") },
   delegation_mulaqats: { noun: "a mulaqat", title: (d) => (d.mulaqat_date ? formatDate(d.mulaqat_date) : "") },
   jaidat_records: { noun: "a checklist item", title: (d) => String(d.title ?? "") },
   jaidat_compliance: { noun: "a compliance check", title: (d) => String(d.title ?? "") },
@@ -75,6 +76,8 @@ export function describe(entry: AuditEntry) {
   // Changes made through an AeK link have no signed-in user.
   const viaAek =
     entry.table_name === "delegation_aek_updates" ||
+    // Return journeys sent through the AeK link have no signed-in user either.
+    (entry.table_name === "delegation_travellers" && !entry.actor && entry.action === "update") ||
     data.source === "aek" ||
     // The AeK's name and number are copied onto the delegation when they send the form.
     (entry.table_name === "delegations" && !entry.actor && entry.action === "update" && headOnly(entry.old_data, entry.new_data));

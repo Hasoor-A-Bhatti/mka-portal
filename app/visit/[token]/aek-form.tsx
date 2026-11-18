@@ -46,7 +46,7 @@ const TYPES_BY_EXT: Record<string, string> = {
   heif: "image/heif",
 };
 
-export function AekForm({ token, view }: { token: string; view: AekView }) {
+export function AekForm({ token, view, hasGroupList = false }: { token: string; view: AekView; hasGroupList?: boolean }) {
   const router = useRouter();
   const d = view.delegation;
   const u = view.update;
@@ -127,7 +127,7 @@ export function AekForm({ token, view }: { token: string; view: AekView }) {
           const fd = new FormData(e.currentTarget);
           // Only the days of the stay as it stands now.
           fd.set("activities", JSON.stringify(Object.fromEntries(days.filter((day) => activities[day]).map((day) => [day, activities[day]]))));
-          fd.set("khuddam", JSON.stringify(khuddam));
+          fd.set("khuddam", JSON.stringify(hasGroupList ? u?.khuddam ?? [] : khuddam));
           fd.set("meal_requests", JSON.stringify(Object.fromEntries(days.map((day) => [day, wanted(day)]))));
           setError(null);
           setSaved(false);
@@ -276,7 +276,8 @@ export function AekForm({ token, view }: { token: string; view: AekView }) {
           )}
         </fieldset>
 
-        <fieldset className="visit-group">
+        {/* With a group list from the team (above), people aren't typed in again here. */}
+        {!hasGroupList && <fieldset className="visit-group">
           <legend>
             <Users size={18} /> Khuddam
             <span className="optional-tag">Optional</span>
@@ -384,7 +385,7 @@ export function AekForm({ token, view }: { token: string; view: AekView }) {
               </button>
             )}
           </div>
-        </fieldset>
+        </fieldset>}
 
         <fieldset className="visit-group">
           <legend>

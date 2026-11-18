@@ -28,6 +28,7 @@ import {
   type Stay,
   type TeamMember,
   type Transport,
+  type Traveller,
 } from "@/lib/delegations";
 import { londonDate } from "@/lib/google-calendar";
 import { vars } from "@/lib/css";
@@ -37,12 +38,14 @@ import { StaysPanel } from "@/components/delegations/stays-panel";
 import { TransportPanel } from "@/components/delegations/transport-panel";
 import { MealsPanel } from "@/components/delegations/meals-panel";
 import { MulaqatPanel } from "@/components/delegations/mulaqat-panel";
+import { TravellersPanel } from "@/components/delegations/travellers-panel";
 import { EditAccess } from "@/components/edit-access";
 
 export const dynamic = "force-dynamic";
 
 const TABS = [
   { key: "info", label: "Info" },
+  { key: "travellers", label: "Travellers" },
   { key: "accommodation", label: "Accommodation" },
   { key: "transport", label: "Transport" },
   { key: "food", label: "Food" },
@@ -90,7 +93,7 @@ export default async function DelegationPage({ params, searchParams }: Props) {
   if (!row) notFound();
   const d = row as unknown as Delegation;
 
-  const [filesRes, staysRes, transportRes, mealsRes, mulaqatRes, teamRes, linkRes, aekRes, regionLinkRes, driversRes] = await Promise.all([
+  const [filesRes, staysRes, transportRes, mealsRes, mulaqatRes, teamRes, linkRes, aekRes, regionLinkRes, driversRes, travellersRes] = await Promise.all([
     supabase
       .from("delegation_files")
       .select("*, creator:profiles!delegation_files_created_by_fkey(full_name)")
@@ -121,7 +124,10 @@ export default async function DelegationPage({ params, searchParams }: Props) {
       .limit(1)
       .maybeSingle(),
     supabase.from("delegation_drivers").select("leg, full_name, aims, phone").eq("delegation_id", id).order("leg", { ascending: false }).order("position"),
+    // Missing table (before migration 0018) just means no list yet.
+    supabase.from("delegation_travellers").select("*").eq("delegation_id", id).order("ref", { nullsFirst: false }).limit(2000),
   ]);
+  const travellers = (travellersRes.data ?? []) as Traveller[];
 
   const loadError = [filesRes, staysRes, transportRes, mealsRes, mulaqatRes].find((r) => r.error)?.error;
   const files = await signFiles(supabase, (filesRes.data ?? []) as unknown as DelegationFile[]);
@@ -179,14 +185,17 @@ export default async function DelegationPage({ params, searchParams }: Props) {
     nextMulaqat: next ? `${shortDay(next.mulaqat_date)}${next.mulaqat_time ? `, ${hhmm(next.mulaqat_time)}` : ""}` : null,
   };
 
-  const badges: Partial<Record<Tab, { text: string; alert?: boolean }>> = days.length
+  const badges: Partial<Record<Tab, { text: string; alert?: boolean }>> = {
+    travellers: travellers.length ? { text: String(travellers.length) } : undefined,
+    ...(days.length
     ? {
         accommodation: coveredDays < days.length ? { text: String(days.length - coveredDays), alert: true } : undefined,
         transport: transport.length ? { text: String(transport.length) } : undefined,
         food: { text: `${mealsDone}/${summary.mealsTotal}` },
         mulaqat: mulaqats.length ? { text: String(mulaqats.length) } : undefined,
       }
-    : {};
+    : {}),
+  };
 
   const dayNumber = days.indexOf(today) + 1;
 
@@ -293,7 +302,17 @@ export default async function DelegationPage({ params, searchParams }: Props) {
       <div className="tab-body rise" style={vars({ "--i": "3" })} key={tab}>
         {tab === "info" && <InfoPanel delegation={d} files={files} summary={summary} canManage={canManage} aek={aek} region={region} />}
 
-        {tab !== "info" && days.length === 0 && (
+        {tab === "travellers" &&
+          (travellersRes.error && ["42P01", "PGRST205"].includes(travellersRes.error.code ?? "") ? (
+            <section className="notice glass">
+              <h1>Travellers aren&apos;t set up yet</h1>
+              <p>Run supabase/migrations/0018_delegation_travellers.sql in the Supabase SQL Editor.</p>
+            </section>
+          ) : (
+            <TravellersPanel delegationId={id} travellers={travellers} canManage={canManage} />
+          ))}
+
+        {tab !== "info" && tab !== "travellers" && days.length === 0 && (
           <section className="notice glass">
             <h1>Set the dates first</h1>
             <p>Add an arrival and departure date on the Info tab, and the planner will cover each day of the stay.</p>

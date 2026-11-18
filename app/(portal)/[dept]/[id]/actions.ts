@@ -360,3 +360,53 @@ export async function deleteMulaqat(id: string, mulaqatId: string): Promise<Resu
     return check(res, "mulaqat") ?? done(id);
   });
 }
+
+// ---------- Travellers ----------
+
+const yes = (fd: FormData, name: string) => fd.get(name) === "on";
+
+export async function saveTraveller(id: string, travellerId: string | null, fd: FormData): Promise<Result> {
+  return guarded(async () => {
+    const { supabase } = await delegation(id);
+    if (travellerId && !UUID.test(travellerId)) throw new Invalid("That person isn't on the list.");
+    const arrival = date(fd, "arrival_date", "Arrival date");
+    const departure = date(fd, "departure_date", "Departure date");
+    if (arrival && departure && departure < arrival) throw new Invalid("Departure is before arrival.");
+    const payload = {
+      delegation_id: id,
+      ref: whole(fd, "ref", "Number on the list"),
+      full_name: text(fd, "full_name", "Name", { required: true, max: 120 }),
+      phone: text(fd, "phone", "Phone", { max: 40 }),
+      arrival_date: arrival,
+      arrival_time: time(fd, "arrival_time", "Arrival time"),
+      arrival_flight: text(fd, "arrival_flight", "Arrival flight", { max: 40 })?.replace(/\s+/g, "").toUpperCase() ?? null,
+      arrival_place: text(fd, "arrival_place", "Arriving at", { max: 80 }),
+      departure_date: departure,
+      departure_time: time(fd, "departure_time", "Departure time"),
+      departure_flight: text(fd, "departure_flight", "Departure flight", { max: 40 })?.replace(/\s+/g, "").toUpperCase() ?? null,
+      departure_place: text(fd, "departure_place", "Leaving from", { max: 80 }),
+      needs_accommodation: yes(fd, "needs_accommodation"),
+      needs_pickup: yes(fd, "needs_pickup"),
+      needs_dropoff: yes(fd, "needs_dropoff"),
+      needs_bed: yes(fd, "needs_bed"),
+      notes: text(fd, "notes", "Notes", { max: 1000 }),
+    };
+    const res = travellerId
+      ? await supabase.from("delegation_travellers").update(payload).eq("id", travellerId).eq("delegation_id", id).select("id")
+      : await supabase.from("delegation_travellers").insert(payload).select("id");
+    if (res.error?.code === "23505") return { error: "Someone else on the list already has that number." };
+    if (res.error && ["42P01", "PGRST205"].includes(res.error.code ?? "")) {
+      return { error: "Travellers aren't set up yet: run supabase/migrations/0018_delegation_travellers.sql in Supabase." };
+    }
+    return check(res, "person") ?? done(id);
+  });
+}
+
+export async function deleteTraveller(id: string, travellerId: string): Promise<Result> {
+  return guarded(async () => {
+    const { supabase } = await delegation(id, true);
+    if (!UUID.test(travellerId)) throw new Invalid("That person isn't on the list.");
+    const res = await supabase.from("delegation_travellers").delete().eq("id", travellerId).eq("delegation_id", id).select("id");
+    return check(res, "person") ?? done(id);
+  });
+}

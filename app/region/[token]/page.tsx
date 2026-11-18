@@ -17,9 +17,10 @@ import {
   Utensils,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { MEALS, dayRange, daysLabel, fmtDay, hhmm, spanDays, stayDays, telHref, type Driver, type MealKey } from "@/lib/delegations";
+import { MEALS, dayRange, daysLabel, fmtDay, hhmm, spanDays, stayDays, telHref, type Driver, type MealKey, type Traveller } from "@/lib/delegations";
 import { SiteFooter, Watermark } from "@/components/brand";
 import { DriversForm } from "./drivers-form";
+import { BedsNeeded, RunsSection, runsSummary } from "./runs";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,9 @@ export default async function RegionPage({ params }: Props) {
   const supabase = await createClient();
   const { data } = token.length >= 32 ? await supabase.rpc("region_view", { tok: token }) : { data: null };
   const view = (data ?? null) as RegionView | null;
+  // The group's list, for delegations travelling separately (empty before migration 0018).
+  const { data: group } = view ? await supabase.rpc("region_travellers", { tok: token }) : { data: null };
+  const travellers = (Array.isArray(group) ? group : []) as Traveller[];
 
   return (
     <main className="visit region">
@@ -112,7 +116,7 @@ export default async function RegionPage({ params }: Props) {
           </p>
         </section>
       ) : (
-        <RegionBrief token={token} view={view} />
+        <RegionBrief token={token} view={view} travellers={travellers} />
       )}
 
       <SiteFooter className="visit-foot" />
@@ -121,7 +125,9 @@ export default async function RegionPage({ params }: Props) {
   );
 }
 
-function RegionBrief({ token, view }: { token: string; view: RegionView }) {
+function RegionBrief({ token, view, travellers }: { token: string; view: RegionView; travellers: Traveller[] }) {
+  // Large groups that travel separately have a list of people and their flights.
+  const grouped = travellers.length > 0;
   const d = view.delegation;
   const a = view.aek;
   const people = a?.members ?? d.members;
@@ -175,11 +181,17 @@ function RegionBrief({ token, view }: { token: string; view: RegionView }) {
             doneText={`${pickup.length} driver${pickup.length === 1 ? "" : "s"} added`}
             todoText="Add drivers below"
           >
-            {arrival ? longDay(arrival) : "Date to be confirmed"}
-            {a?.arrival_time ? `, ${hhmm(a.arrival_time)}` : ", time to be confirmed"}
-            {a?.arrival_place && ` at ${a.arrival_place}`}
-            {a?.arrival_travel && ` (${a.arrival_travel})`}
-            {people != null && ` · ${people} people`}
+            {grouped ? (
+              runsSummary(travellers, "arrival")
+            ) : (
+              <>
+                {arrival ? longDay(arrival) : "Date to be confirmed"}
+                {a?.arrival_time ? `, ${hhmm(a.arrival_time)}` : ", time to be confirmed"}
+                {a?.arrival_place && ` at ${a.arrival_place}`}
+                {a?.arrival_travel && ` (${a.arrival_travel})`}
+                {people != null && ` · ${people} people`}
+              </>
+            )}
           </Task>
           <Task icon={<BedDouble size={18} />} title="Accommodation" done={venues.length > 0} doneText="Planned" todoText="Not planned yet">
             {venues.length ? venues.join(", ") : "The Delegations team will add this."}
@@ -197,15 +209,27 @@ function RegionBrief({ token, view }: { token: string; view: RegionView }) {
             todoText="Optional"
             optional
           >
-            {departure ? longDay(departure) : "Date to be confirmed"}
-            {a?.departure_time ? `, ${hhmm(a.departure_time)}` : ", time to be confirmed"}
-            {a?.departure_place && ` from ${a.departure_place}`}
-            {a?.departure_travel && ` (${a.departure_travel})`}
+            {grouped ? (
+              runsSummary(travellers, "departure")
+            ) : (
+              <>
+                {departure ? longDay(departure) : "Date to be confirmed"}
+                {a?.departure_time ? `, ${hhmm(a.departure_time)}` : ", time to be confirmed"}
+                {a?.departure_place && ` from ${a.departure_place}`}
+                {a?.departure_travel && ` (${a.departure_travel})`}
+              </>
+            )}
           </Task>
         </ol>
       </section>
 
-      {/* Travel and contacts */}
+      {/* Travel: one pickup and drop-off per flight for groups with a list, otherwise the group's own journey */}
+      {grouped ? (
+        <>
+          <RunsSection list={travellers} leg="arrival" icon={<PlaneLanding size={18} />} />
+          <RunsSection list={travellers} leg="departure" icon={<PlaneTakeoff size={18} />} />
+        </>
+      ) : (
       <div className="region-grid">
         <TravelCard
           icon={<PlaneLanding size={18} />}
@@ -226,6 +250,7 @@ function RegionBrief({ token, view }: { token: string; view: RegionView }) {
           placeLabel="Leaving from"
         />
       </div>
+      )}
 
       <section className="visit-card glass glass-strong">
         <h2>
@@ -260,6 +285,7 @@ function RegionBrief({ token, view }: { token: string; view: RegionView }) {
         <h2>
           <BedDouble size={18} /> Accommodation
         </h2>
+        <BedsNeeded list={travellers} />
         {view.stays.length === 0 ? (
           <p className="muted-note">Not planned yet. It will appear here once the Delegations team adds it.</p>
         ) : (

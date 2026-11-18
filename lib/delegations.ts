@@ -304,3 +304,77 @@ export function driversReceived(drivers: Pick<Driver, "leg">[]): string | null {
   const n = (k: number, what: string) => `${k} ${what} driver${k === 1 ? "" : "s"}`;
   return [up ? n(up, "pickup") : null, down ? n(down, "drop-off") : null].filter(Boolean).join(", ");
 }
+
+// ---------- Travellers (0018): one row per person ----------
+
+export type Traveller = {
+  id: string;
+  ref: number | null;
+  full_name: string;
+  phone?: string | null;
+  arrival_date: string | null;
+  arrival_time: string | null;
+  arrival_flight: string | null;
+  arrival_place: string | null;
+  departure_date: string | null;
+  departure_time: string | null;
+  departure_flight: string | null;
+  departure_place: string | null;
+  needs_accommodation?: boolean;
+  needs_pickup: boolean;
+  needs_dropoff: boolean;
+  needs_bed?: boolean;
+  notes?: string | null;
+};
+
+export type TravelLeg = "arrival" | "departure";
+
+/** Everyone on the same flight (or, without a flight number, the same time) into or out of the same airport on the same day. */
+export type TravelRun = {
+  key: string;
+  leg: TravelLeg;
+  date: string | null;
+  flight: string | null;
+  place: string | null;
+  /** Earliest and latest time given, "09:35" to "09:45". */
+  from: string | null;
+  to: string | null;
+  people: Traveller[];
+  /** People on it who need us there (pickup or drop-off). */
+  needUs: number;
+};
+
+const legOf = (t: Traveller, leg: TravelLeg) =>
+  leg === "arrival"
+    ? { date: t.arrival_date, time: hhmm(t.arrival_time), flight: t.arrival_flight, place: t.arrival_place, need: t.needs_pickup }
+    : { date: t.departure_date, time: hhmm(t.departure_time), flight: t.departure_flight, place: t.departure_place, need: t.needs_dropoff };
+
+/** True when someone has nothing at all for this journey yet. */
+export const legUnknown = (t: Traveller, leg: TravelLeg) => {
+  const l = legOf(t, leg);
+  return !l.date && !l.time && !l.flight && !l.place;
+};
+
+/** Groups people into the runs to meet or see off. People with nothing for this journey are left out. */
+export function travelRuns(list: Traveller[], leg: TravelLeg): TravelRun[] {
+  const runs = new Map<string, TravelRun>();
+  for (const t of list) {
+    if (legUnknown(t, leg)) continue;
+    const l = legOf(t, leg);
+    const flight = l.flight?.replace(/\s+/g, "").toUpperCase() || null;
+    const key = [l.date ?? "-", flight ?? `@${l.time ?? "-"}`, (l.place ?? "-").toLowerCase()].join("|");
+    const run = runs.get(key) ?? { key, leg, date: l.date, flight, place: l.place, from: l.time, to: l.time, people: [], needUs: 0 };
+    run.people.push(t);
+    if (l.need) run.needUs++;
+    if (l.time && (!run.from || l.time < run.from)) run.from = l.time;
+    if (l.time && (!run.to || l.time > run.to)) run.to = l.time;
+    runs.set(key, run);
+  }
+  for (const r of runs.values()) r.people.sort((a, b) => (a.ref ?? 9999) - (b.ref ?? 9999) || a.full_name.localeCompare(b.full_name));
+  return [...runs.values()].sort(
+    (a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999") || (a.from ?? "99").localeCompare(b.from ?? "99") || (a.flight ?? "").localeCompare(b.flight ?? ""),
+  );
+}
+
+/** "09:35–09:45" or "09:45". */
+export const runTime = (r: Pick<TravelRun, "from" | "to">) => (r.from && r.to && r.from !== r.to ? `${r.from}–${r.to}` : r.from ?? "Time not given");

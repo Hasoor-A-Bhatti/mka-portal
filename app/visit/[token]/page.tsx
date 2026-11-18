@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { CalendarDays, Clock4, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { dayRange, type AekUpdate } from "@/lib/delegations";
+import { dayRange, type AekUpdate, type Traveller } from "@/lib/delegations";
 import { SiteFooter, Watermark } from "@/components/brand";
 import { AekForm, type AekView } from "./aek-form";
+import { GroupForm } from "./group-form";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export default async function VisitPage({ params }: Props) {
   const supabase = await createClient();
   const { data } = token.length >= 32 ? await supabase.rpc("aek_view", { tok: token }) : { data: null };
   const view = (data ?? null) as (AekView & { update: AekUpdate | null }) | null;
+  // The group's list, if the team has one (empty before migration 0018).
+  const { data: group } = view ? await supabase.rpc("aek_travellers", { tok: token }) : { data: null };
+  const travellers = (Array.isArray(group) ? group : []) as Traveller[];
 
   return (
     <main className="visit">
@@ -74,7 +78,9 @@ export default async function VisitPage({ params }: Props) {
             )}
           </section>
 
-          <AekForm token={token} view={view} />
+          {travellers.length > 0 && <GroupForm token={token} travellers={travellers} departure={view.delegation.departure_date} />}
+
+          <AekForm token={token} view={view} hasGroupList={travellers.length > 0} />
 
           <p className="visit-privacy">
             <ShieldCheck size={15} /> This private link only shows your own delegation. Please don't share it outside your
