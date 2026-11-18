@@ -21,6 +21,9 @@ type DbError = { code?: string; message: string };
 function friendly(error: DbError): string {
   if (error.code === "23505") return "That already exists.";
   if (error.code === "42501") return "You don't have permission to do that.";
+  if (error.code === "23514" && /fleet_files.*kind|kind_check/i.test(error.message)) {
+    return "V5C uploads aren't switched on in the database yet: run supabase/migrations/0011_fleet_v5c.sql in the Supabase SQL Editor, then try again.";
+  }
   if (error.code === "23514") return "One of the values isn't allowed.";
   if (error.code === "23502") return "A required field is empty.";
   return error.message;
