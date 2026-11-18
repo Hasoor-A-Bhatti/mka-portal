@@ -10659,11 +10659,6 @@ a.jd-cell:hover {
   color: var(--text-soft);
 }
 
-.tv-flag.is-bed {
-  background: #fdf1d8;
-  color: #8a5a00;
-}
-
 .tv-note {
   flex-basis: 100%;
   padding-left: 34px;
@@ -10747,7 +10742,7 @@ a.jd-cell:hover {
   gap: 6px 12px;
 }
 
-/* AeK link: the group's return journeys */
+/* AeK link: the group (goes onto the Travellers list) */
 .grp-bulk {
   display: grid;
   gap: 10px;
@@ -10757,16 +10752,46 @@ a.jd-cell:hover {
   background: rgba(59, 22, 140, 0.05);
 }
 
-.grp-bulk > strong {
-  display: inline-flex;
+.grp-bulk-head {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.grp-bulk-grid,
-.grp-fields {
+.grp-leg-pick {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(59, 22, 140, 0.12);
+}
+
+.grp-leg-pick button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.grp-leg-pick button[aria-pressed="true"] {
+  background: var(--accent, #4a1fa8);
+  color: #fff;
+}
+
+.grp-leg-grid {
   display: grid;
-  grid-template-columns: 150px 110px minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: 148px 104px minmax(0, 0.8fr) minmax(0, 1.4fr);
   gap: 8px;
 }
 
@@ -10779,8 +10804,8 @@ a.jd-cell:hover {
 
 .grp-list {
   display: grid;
-  gap: 8px;
-  margin: 0;
+  gap: 10px;
+  margin: 0 0 12px;
   padding: 0;
   list-style: none;
 }
@@ -10799,57 +10824,69 @@ a.jd-cell:hover {
   background: rgba(74, 31, 168, 0.05);
 }
 
-.grp-who {
+.grp-row-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  cursor: pointer;
 }
 
-.grp-who input {
+.grp-tick,
+.grp-drop input {
+  flex: none;
   width: 18px;
   height: 18px;
-  margin-top: 2px;
   accent-color: var(--accent, #4a1fa8);
 }
 
-.grp-who strong {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.grp-who small {
-  display: block;
-  color: var(--muted);
-  font-size: 12.5px;
+.grp-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
 }
 
 .grp-ref {
   display: inline-grid;
+  flex: none;
   place-items: center;
-  min-width: 26px;
-  height: 22px;
+  min-width: 28px;
+  height: 24px;
   padding: 0 5px;
   border-radius: 6px;
   background: rgba(59, 22, 140, 0.07);
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.grp-leg {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.grp-leg-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.grp-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding-left: 94px;
 }
 
 .grp-drop {
   display: inline-flex;
-  grid-column: 1 / -1;
   align-items: center;
   gap: 8px;
   font-size: 13.5px;
   cursor: pointer;
-}
-
-.grp-drop input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--accent, #4a1fa8);
 }
 
 /* Region Guidance: pickup and drop-off runs */
@@ -10931,18 +10968,6 @@ a.jd-cell:hover {
   font-weight: 600;
 }
 
-.rg-bed {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: #fdf1d8;
-  color: #8a5a00;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .rg-phone {
   display: inline-flex;
   align-items: center;
@@ -10957,11 +10982,6 @@ a.jd-cell:hover {
 
 .rg-waiting {
   margin-top: 12px;
-}
-
-.rg-beds {
-  margin: 4px 0 0;
-  padding-left: 18px;
 }
 
 @media (max-width: 700px) {
@@ -10981,9 +11001,17 @@ a.jd-cell:hover {
     grid-template-columns: 1fr;
   }
 
-  .grp-bulk-grid,
-  .grp-fields {
+  .grp-leg-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grp-leg {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .grp-needs {
+    padding-left: 0;
   }
 
   .tv-note {

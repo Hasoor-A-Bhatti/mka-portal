@@ -2,24 +2,23 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange, Check, CheckCircle2, FileText, PlaneLanding, PlaneTakeoff, Plus, Trash2, Upload, UserRound, Users, Utensils } from "lucide-react";
+import { CalendarRange, Check, CheckCircle2, FileText, PlaneLanding, PlaneTakeoff, Upload, UserRound, Utensils } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ACCEPTED_FILES, MAX_FILE_BYTES } from "@/lib/fleet";
 import {
-  ALLERGIES,
   DAY_PARTS,
   MEALS,
   fmtDay,
   stayDays,
   type AekActivities,
   type AekUpdate,
-  type AllergyKey,
   type DayPart,
-  type Khadim,
   type MealKey,
   type MealRequests,
+  type Traveller,
 } from "@/lib/delegations";
-import { registerAekFile, submitAek } from "./actions";
+import { registerAekFile, submitAek, submitGroup } from "./actions";
+import { GroupEditor, emptyGroupRow, toGroupRow, type GroupRow } from "./group-form";
 
 export type AekView = {
   delegation: {
@@ -46,7 +45,7 @@ const TYPES_BY_EXT: Record<string, string> = {
   heif: "image/heif",
 };
 
-export function AekForm({ token, view, hasGroupList = false }: { token: string; view: AekView; hasGroupList?: boolean }) {
+export function AekForm({ token, view, travellers, groupReady }: { token: string; view: AekView; travellers: Traveller[]; groupReady: boolean }) {
   const router = useRouter();
   const d = view.delegation;
   const u = view.update;
@@ -79,10 +78,11 @@ export function AekForm({ token, view, hasGroupList = false }: { token: string; 
   // Food tables update as soon as the AeK changes them.
   const [dates, setDates] = useState({ arrival_date: v.arrival_date, departure_date: v.departure_date });
   const days = stayDays({ arrival_date: dates.arrival_date || null, departure_date: dates.departure_date || null });
-  const [arrivalFlight, setArrivalFlight] = useState(v.arrival_travel);
 
   const [activities, setActivities] = useState<AekActivities>(u?.activities ?? {});
-  const [khuddam, setKhuddam] = useState<Khadim[]>(u?.khuddam?.length ? u.khuddam : [{}]);
+  // The group: everyone here goes onto the delegation's Travellers list when the form is sent.
+  const [group, setGroup] = useState<GroupRow[]>(() => (travellers.length ? travellers.map(toGroupRow) : [emptyGroupRow()]));
+  const [removed, setRemoved] = useState<string[]>([]);
   const [meals, setMeals] = useState<MealRequests>(u?.meal_requests ?? {});
   // Days they haven't answered yet start with every meal ticked.
   const wanted = (day: string): MealKey[] => meals[day] ?? MEALS.map((m) => m.key);
@@ -127,17 +127,24 @@ export function AekForm({ token, view, hasGroupList = false }: { token: string; 
           const fd = new FormData(e.currentTarget);
           // Only the days of the stay as it stands now.
           fd.set("activities", JSON.stringify(Object.fromEntries(days.filter((day) => activities[day]).map((day) => [day, activities[day]]))));
-          fd.set("khuddam", JSON.stringify(hasGroupList ? u?.khuddam ?? [] : khuddam));
+          // The old khuddam list is kept as it was; people now go to the Travellers list.
+          fd.set("khuddam", JSON.stringify(u?.khuddam ?? []));
           fd.set("meal_requests", JSON.stringify(Object.fromEntries(days.map((day) => [day, wanted(day)]))));
           setError(null);
           setSaved(false);
           startSave(async () => {
             const res = await submitAek(token, fd);
-            if (res.error) setError(res.error);
-            else {
-              setSaved(true);
-              router.refresh();
+            if (res.error) return setError(res.error);
+            if (groupReady) {
+              const g = await submitGroup(token, group, removed);
+              if (g.error) return setError(g.error);
+              // The list as saved, with ids for anyone new (so sending again doesn't add them twice).
+              const people = (g.people ?? []) as Traveller[];
+              setGroup(people.length ? people.map(toGroupRow) : [emptyGroupRow()]);
+              setRemoved([]);
             }
+            setSaved(true);
+            router.refresh();
           });
         }}
         onChange={() => setSaved(false)}
@@ -168,7 +175,6 @@ export function AekForm({ token, view, hasGroupList = false }: { token: string; 
                 maxLength={120}
                 placeholder="e.g. LH 920"
                 defaultValue={v.arrival_travel}
-                onChange={(e) => setArrivalFlight(e.target.value)}
               />
             </Field>
             <Field label="Arriving at" htmlFor="a-place">
@@ -276,116 +282,23 @@ export function AekForm({ token, view, hasGroupList = false }: { token: string; 
           )}
         </fieldset>
 
-        {/* With a group list from the team (above), people aren't typed in again here. */}
-        {!hasGroupList && <fieldset className="visit-group">
-          <legend>
-            <Users size={18} /> Khuddam
-            <span className="optional-tag">Optional</span>
-          </legend>
-          <p className="visit-help">Everyone travelling in your group, so we can meet each flight and cater safely.</p>
-          <ol className="driver-rows khadim-rows">
-            {khuddam.map((k, i) => {
-              const set = (patch: Partial<Khadim>) => {
-                setKhuddam((list) => list.map((row, n) => (n === i ? { ...row, ...patch } : row)));
-                touched();
-              };
-              const hasAllergy = Boolean(k.allergy && k.allergy !== "none");
-              return (
-                <li key={i} className="driver-row">
-                  <span className="driver-num" aria-hidden>
-                    {i + 1}
-                  </span>
-                  <div className={`driver-fields khadim-fields ${hasAllergy ? "has-note" : ""}`}>
-                    <div className="field">
-                      <label htmlFor={`k-${i}-name`}>Full name</label>
-                      <input id={`k-${i}-name`} className="input" maxLength={120} autoComplete="off" value={k.name ?? ""} onChange={(e) => set({ name: e.target.value })} />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`k-${i}-flight`}>Flight number</label>
-                      <input
-                        id={`k-${i}-flight`}
-                        className="input"
-                        maxLength={40}
-                        autoComplete="off"
-                        placeholder={arrivalFlight || "e.g. LH 920"}
-                        value={k.flight ?? ""}
-                        onChange={(e) => set({ flight: e.target.value })}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`k-${i}-allergy`}>Allergies</label>
-                      <select
-                        id={`k-${i}-allergy`}
-                        className="select"
-                        value={k.allergy ?? ""}
-                        onChange={(e) => set({ allergy: (e.target.value || undefined) as AllergyKey | undefined })}
-                      >
-                        <option value="">Choose…</option>
-                        {ALLERGIES.map((a) => (
-                          <option key={a.key} value={a.key}>
-                            {a.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {hasAllergy && (
-                      <div className="field khadim-note">
-                        <label htmlFor={`k-${i}-note`}>{k.allergy === "other" ? "Which allergies?" : "Details (optional)"}</label>
-                        <input
-                          id={`k-${i}-note`}
-                          className="input"
-                          maxLength={200}
-                          autoComplete="off"
-                          placeholder={k.allergy === "other" ? "e.g. Nuts and dairy" : "e.g. Severe, carries an EpiPen"}
-                          value={k.allergy_note ?? ""}
-                          onChange={(e) => set({ allergy_note: e.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="icon-link danger driver-remove"
-                    title="Remove"
-                    onClick={() => {
-                      setKhuddam((list) => (list.length === 1 ? [{}] : list.filter((_, n) => n !== i)));
-                      touched();
-                    }}
-                  >
-                    <Trash2 size={16} />
-                    <span className="sr-only">Remove khadim {i + 1}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-          <div className="khadim-actions">
-            {khuddam.length < 300 && (
-              <button
-                type="button"
-                className="btn btn-sm driver-add"
-                onClick={() => {
-                  setKhuddam((list) => [...list, {}]);
-                  touched();
-                }}
-              >
-                <Plus size={15} /> Add another khadim
-              </button>
-            )}
-            {arrivalFlight.trim() && khuddam.some((k) => !k.flight?.trim()) && (
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => {
-                  setKhuddam((list) => list.map((k) => (k.flight?.trim() ? k : { ...k, flight: arrivalFlight.trim().slice(0, 40) })));
-                  touched();
-                }}
-              >
-                Use {arrivalFlight.trim()} where the flight is blank
-              </button>
-            )}
-          </div>
-        </fieldset>}
+        {groupReady && (
+          <GroupEditor
+            rows={group}
+            onChange={(rows) => {
+              setGroup(rows);
+              touched();
+            }}
+            onRemove={(row) => {
+              if (row.id) setRemoved((r) => [...r, row.id!]);
+              setGroup((rows) => {
+                const left = rows.filter((x) => x.key !== row.key);
+                return left.length ? left : [emptyGroupRow()];
+              });
+              touched();
+            }}
+          />
+        )}
 
         <fieldset className="visit-group">
           <legend>

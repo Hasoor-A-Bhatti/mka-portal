@@ -94,35 +94,66 @@ export async function registerAekFile(
   return { ok: true };
 }
 
-export type ReturnJourney = {
-  id: string;
+/** One person in the group, as the AeK edits it. No id means someone new. */
+export type GroupPerson = {
+  id?: string;
+  full_name: string;
+  arrival_date: string;
+  arrival_time: string;
+  arrival_flight: string;
+  arrival_place: string;
   departure_date: string;
   departure_time: string;
   departure_flight: string;
   departure_place: string;
+  needs_pickup: boolean;
   needs_dropoff: boolean;
+  needs_accommodation: boolean;
 };
 
-/** Saves each person's return journey. The database checks the link and that each person is in this delegation. */
-export async function submitReturnJourneys(token: string, rows: ReturnJourney[]): Promise<AekResult> {
-  if (!Array.isArray(rows) || rows.length > 1000) return { error: "Something went wrong reading the list. Please reload the page and try again." };
-  const clean = [];
-  for (const r of rows) {
-    const d = String(r.departure_date ?? "").trim();
-    const t = String(r.departure_time ?? "").trim().slice(0, 5);
-    if (d && !DATE.test(d)) return { error: "One of the dates isn't valid." };
-    if (t && !TIME.test(t)) return { error: "One of the times isn't valid." };
-    clean.push({
-      id: String(r.id),
-      departure_date: d,
-      departure_time: t,
-      departure_flight: String(r.departure_flight ?? "").trim().slice(0, 40),
-      departure_place: String(r.departure_place ?? "").trim().slice(0, 80),
-      needs_dropoff: Boolean(r.needs_dropoff),
-    });
+export type GroupResult = { ok?: boolean; error?: string; people?: unknown[] };
+
+/**
+ * Saves the group from the AeK link onto the delegation's Travellers list.
+ * `removed` are ids the AeK took off (only people they added can go).
+ * Returns the list as it now stands, with ids for anyone new.
+ */
+export async function submitGroup(token: string, people: GroupPerson[], removed: string[]): Promise<GroupResult> {
+  if (!Array.isArray(people) || !Array.isArray(removed) || people.length + removed.length > 1000) {
+    return { error: "Something went wrong reading the list. Please reload the page and try again." };
   }
+  const rows: Record<string, unknown>[] = [];
+  for (const r of people) {
+    const name = String(r.full_name ?? "").trim();
+    if (!r.id && !name) continue;
+    if (name.length > 120) return { error: "One of the names is too long." };
+    const row: Record<string, unknown> = { full_name: name };
+    if (r.id) row.id = String(r.id);
+    for (const k of ["arrival_date", "departure_date"] as const) {
+      const v = String(r[k] ?? "").trim();
+      if (v && !DATE.test(v)) return { error: `The date for ${name || "someone"} isn't valid.` };
+      row[k] = v;
+    }
+    for (const k of ["arrival_time", "departure_time"] as const) {
+      const v = String(r[k] ?? "").trim().slice(0, 5);
+      if (v && !TIME.test(v)) return { error: `The time for ${name || "someone"} isn't valid.` };
+      row[k] = v;
+    }
+    if (row.arrival_date && row.departure_date && String(row.departure_date) < String(row.arrival_date)) {
+      return { error: `${name || "Someone"}'s return date is before their arrival.` };
+    }
+    for (const [k, max] of [["arrival_flight", 40], ["departure_flight", 40], ["arrival_place", 80], ["departure_place", 80]] as const) {
+      row[k] = String(r[k] ?? "").trim().slice(0, max);
+    }
+    row.needs_pickup = Boolean(r.needs_pickup);
+    row.needs_dropoff = Boolean(r.needs_dropoff);
+    row.needs_accommodation = Boolean(r.needs_accommodation);
+    rows.push(row);
+  }
+  for (const id of removed) rows.push({ id: String(id), remove: true });
+
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("aek_save_travellers", { tok: token, p: clean });
+  const { data, error } = await supabase.rpc("aek_save_travellers", { tok: token, p: rows });
   if (error) return { error: message(error) };
-  return { ok: true, savedAt: String(data) };
+  return { ok: true, people: Array.isArray(data) ? data : [] };
 }

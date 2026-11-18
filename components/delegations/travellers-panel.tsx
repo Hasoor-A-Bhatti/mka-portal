@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BedDouble, Check, ChevronsUpDown, Copy, PlaneLanding, PlaneTakeoff, Plus, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Copy, PlaneLanding, PlaneTakeoff, Plus, Search } from "lucide-react";
 import {
   fmtDay,
   hhmm,
@@ -29,8 +29,6 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
 
   const pickups = travellers.filter((t) => t.needs_pickup).length;
   const dropoffs = travellers.filter((t) => t.needs_dropoff).length;
-  const beds = travellers.filter((t) => t.needs_bed).length;
-  const noReturn = travellers.filter((t) => legUnknown(t, "departure")).length;
   const open = (t: Traveller | null) => setEditing({ t });
 
   return (
@@ -47,14 +45,6 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
         <div className="stat glass">
           <strong>{dropoffs}</strong>
           <span>airport drop-off{dropoffs === 1 ? "" : "s"}</span>
-        </div>
-        <div className="stat glass">
-          <strong style={{ color: beds ? "#9a6600" : undefined }}>{beds}</strong>
-          <span>need{beds === 1 ? "s" : ""} a bed</span>
-        </div>
-        <div className="stat glass">
-          <strong style={{ color: noReturn ? "#9a6600" : "var(--ok)" }}>{noReturn}</strong>
-          <span>return journey not known</span>
         </div>
       </section>
 
@@ -106,7 +96,8 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
 
 function RunsView({ leg, travellers, onOpen }: { leg: TravelLeg; travellers: Traveller[]; onOpen: (t: Traveller) => void }) {
   const all = useMemo(() => travelRuns(travellers, leg), [travellers, leg]);
-  const unknown = travellers.filter((t) => legUnknown(t, leg));
+  // Arrivals: anyone without arrival details. Departures: only people who need a drop-off.
+  const unknown = travellers.filter((t) => legUnknown(t, leg) && (leg === "arrival" || t.needs_dropoff));
   const [allOpen, setAllOpen] = useState<boolean | null>(null);
   // Flights nobody needs meeting (people who arrive early by themselves) are hidden at first.
   const [onlyOurs, setOnlyOurs] = useState(true);
@@ -159,7 +150,7 @@ function RunsView({ leg, travellers, onOpen }: { leg: TravelLeg; travellers: Tra
       {unknown.length > 0 && (
         <section className="tv-day tv-unknown">
           <h3>
-            {leg === "arrival" ? "No arrival details yet" : "Return journey not known yet"}
+            {leg === "arrival" ? "No arrival details yet" : "Drop-off needed, flight not known yet"}
             <small>{unknown.length}</small>
           </h3>
           <p className="muted-note">
@@ -174,7 +165,6 @@ function RunsView({ leg, travellers, onOpen }: { leg: TravelLeg; travellers: Tra
                   {t.ref != null && <span className="tv-ref">{t.ref}</span>}
                   {t.full_name}
                 </button>
-                {leg === "departure" && t.needs_dropoff && <span className="tv-flag">Drop-off</span>}
               </li>
             ))}
           </ul>
@@ -254,11 +244,6 @@ function RunCard({
               )}
               <span className="tv-flags">
                 {!needs(t) && <span className="tv-flag is-muted">No {need}</span>}
-                {t.needs_bed && (
-                  <span className="tv-flag is-bed">
-                    <BedDouble size={12} /> Needs a bed
-                  </span>
-                )}
                 {r.from !== r.to && hhmm(arriving ? t.arrival_time : t.departure_time) && (
                   <span className="tv-flag is-muted">{hhmm(arriving ? t.arrival_time : t.departure_time)}</span>
                 )}
@@ -342,7 +327,6 @@ function EveryoneTable({ travellers, onOpen }: { travellers: Traveller[]; onOpen
                     {t.needs_pickup && <span className="tv-flag">Pickup</span>}
                     {t.needs_dropoff && <span className="tv-flag">Drop-off</span>}
                     {t.needs_accommodation && <span className="tv-flag is-muted">Room</span>}
-                    {t.needs_bed && <span className="tv-flag is-bed">Bed</span>}
                   </span>
                 </td>
               </tr>
@@ -416,7 +400,6 @@ function TravellerDialog({ delegationId, t, canManage, onClose }: { delegationId
                 ["needs_pickup", "Airport pickup", t ? t.needs_pickup : true],
                 ["needs_dropoff", "Airport drop-off", t ? t.needs_dropoff : true],
                 ["needs_accommodation", "Accommodation", t ? t.needs_accommodation ?? true : true],
-                ["needs_bed", "Needs a bed (can't sleep on the floor)", t?.needs_bed ?? false],
               ] as const
             ).map(([name, label, on]) => (
               <label key={name} className="check">
@@ -429,7 +412,7 @@ function TravellerDialog({ delegationId, t, canManage, onClose }: { delegationId
           </div>
           <div className="field wide">
             <label htmlFor="tv-notes">Notes</label>
-            <textarea id="tv-notes" name="notes" className="textarea" maxLength={1000} rows={3} defaultValue={t?.notes ?? ""} placeholder="Children with them, medical needs, anything to check…" />
+            <textarea id="tv-notes" name="notes" className="textarea" maxLength={1000} rows={3} defaultValue={t?.notes ?? ""} placeholder="Anything else to know" />
           </div>
           <datalist id="tv-airports">
             {AIRPORTS.map((a) => (

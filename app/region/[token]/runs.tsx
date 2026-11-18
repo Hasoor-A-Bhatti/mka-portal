@@ -1,7 +1,7 @@
 // Region Guidance: the pickup and drop-off runs, for delegations with a traveller list (0018).
 
 import type { ReactNode } from "react";
-import { BedDouble, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 import { fmtDay, hhmm, legUnknown, runTime, telHref, travelRuns, type Traveller, type TravelLeg } from "@/lib/delegations";
 
 /** "4 runs over 3 days, 52 people" for the task list. */
@@ -57,14 +57,7 @@ export function RunsSection({ list, leg, icon }: { list: Traveller[]; leg: Trave
                     <ol className="rg-people">
                       {go.map((t) => (
                         <li key={t.id}>
-                          <span className="rg-name">
-                            {t.full_name}
-                            {t.needs_bed && (
-                              <span className="rg-bed" title="Needs a bed">
-                                <BedDouble size={12} /> Bed
-                              </span>
-                            )}
-                          </span>
+                          <span className="rg-name">{t.full_name}</span>
                           {t.phone ? (
                             <a href={telHref(t.phone)} className="rg-phone">
                               <Phone size={13} /> {t.phone}
@@ -94,29 +87,5 @@ export function RunsSection({ list, leg, icon }: { list: Traveller[]; leg: Trave
         </p>
       )}
     </section>
-  );
-}
-
-/** People who can't sleep on the floor, for the accommodation team. */
-export function BedsNeeded({ list }: { list: Traveller[] }) {
-  const beds = list.filter((t) => t.needs_bed);
-  if (!beds.length) return null;
-  return (
-    <div className="region-note">
-      <BedDouble size={16} />
-      <div>
-        <strong>
-          {beds.length} {beds.length === 1 ? "person needs" : "people need"} a proper bed:
-        </strong>
-        <ul className="rg-beds">
-          {beds.map((t) => (
-            <li key={t.id}>
-              {t.full_name}
-              {t.notes && <small> · {t.notes}</small>}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
   );
 }

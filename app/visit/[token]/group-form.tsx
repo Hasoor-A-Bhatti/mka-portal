@@ -1,100 +1,126 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { CheckCircle2, PlaneTakeoff, Users } from "lucide-react";
-import { hhmm, shortDay, type Traveller } from "@/lib/delegations";
-import { submitReturnJourneys, type ReturnJourney } from "./actions";
+import { useState } from "react";
+import { PlaneLanding, PlaneTakeoff, Plus, Trash2, Users } from "lucide-react";
+import { hhmm, type Traveller } from "@/lib/delegations";
+import type { GroupPerson } from "./actions";
 
 const AIRPORTS = ["Heathrow T2", "Heathrow T3", "Heathrow T4", "Heathrow T5", "Gatwick North", "Gatwick South", "Manchester"];
 
-const toRow = (t: Traveller): ReturnJourney => ({
+/** A person as edited on the page. `key` keeps rows steady while new people have no id yet. */
+export type GroupRow = GroupPerson & { key: string; fromTeam: boolean; ref: number | null };
+
+export const toGroupRow = (t: Traveller): GroupRow => ({
+  key: t.id,
   id: t.id,
+  ref: t.ref,
+  fromTeam: t.source !== "aek",
+  full_name: t.full_name,
+  arrival_date: t.arrival_date ?? "",
+  arrival_time: hhmm(t.arrival_time) ?? "",
+  arrival_flight: t.arrival_flight ?? "",
+  arrival_place: t.arrival_place ?? "",
   departure_date: t.departure_date ?? "",
   departure_time: hhmm(t.departure_time) ?? "",
   departure_flight: t.departure_flight ?? "",
   departure_place: t.departure_place ?? "",
+  needs_pickup: t.needs_pickup,
   needs_dropoff: t.needs_dropoff,
+  needs_accommodation: t.needs_accommodation ?? true,
 });
 
-const hasReturn = (r: ReturnJourney) => Boolean(r.departure_date || r.departure_time || r.departure_flight || r.departure_place);
+let added = 0;
+const blank = (): GroupRow => ({
+  key: `new-${++added}-${Date.now()}`,
+  ref: null,
+  fromTeam: false,
+  full_name: "",
+  arrival_date: "",
+  arrival_time: "",
+  arrival_flight: "",
+  arrival_place: "",
+  departure_date: "",
+  departure_time: "",
+  departure_flight: "",
+  departure_place: "",
+  needs_pickup: true,
+  needs_dropoff: true,
+  needs_accommodation: true,
+});
+
+type Leg = "arrival" | "departure";
+const LEG_FIELDS = (leg: Leg) => [`${leg}_date`, `${leg}_time`, `${leg}_flight`, `${leg}_place`] as const;
 
 /**
- * The group's list, for delegations whose members travel separately.
- * The AeK fills in each person's return journey, one at a time or several at once.
+ * Everyone in the group, edited on the AeK link. Each person entered here goes
+ * onto the delegation's Travellers list when the form is sent.
  */
-export function GroupForm({ token, travellers, departure }: { token: string; travellers: Traveller[]; departure: string | null }) {
-  const router = useRouter();
-  const [rows, setRows] = useState<ReturnJourney[]>(() => travellers.map(toRow));
+export function GroupEditor({
+  rows,
+  onChange,
+  onRemove,
+}: {
+  rows: GroupRow[];
+  onChange: (rows: GroupRow[]) => void;
+  onRemove: (row: GroupRow) => void;
+}) {
   const [ticked, setTicked] = useState<Set<string>>(new Set());
-  const [bulk, setBulk] = useState({ departure_date: departure ?? "", departure_time: "", departure_flight: "", departure_place: "" });
-  const [saving, startSave] = useTransition();
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [bulkLeg, setBulkLeg] = useState<Leg>("departure");
+  const [bulk, setBulk] = useState({ date: "", time: "", flight: "", place: "" });
 
-  const by = new Map(travellers.map((t) => [t.id, t]));
-  const done = rows.filter(hasReturn).length;
-  const set = (id: string, patch: Partial<ReturnJourney>) => {
-    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-    setSaved(false);
-  };
-  const tick = (id: string, on: boolean) =>
+  const set = (key: string, patch: Partial<GroupRow>) => onChange(rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const tick = (key: string, on: boolean) =>
     setTicked((s) => {
       const n = new Set(s);
-      if (on) n.add(id);
-      else n.delete(id);
+      if (on) n.add(key);
+      else n.delete(key);
       return n;
     });
-
   const apply = () => {
-    const patch = Object.fromEntries(Object.entries(bulk).filter(([, v]) => v.trim())) as Partial<ReturnJourney>;
-    setRows((list) => list.map((r) => (ticked.has(r.id) ? { ...r, ...patch } : r)));
+    const [d, t, f, p] = LEG_FIELDS(bulkLeg);
+    const patch: Partial<GroupRow> = {};
+    if (bulk.date) patch[d] = bulk.date;
+    if (bulk.time) patch[t] = bulk.time;
+    if (bulk.flight.trim()) patch[f] = bulk.flight.trim();
+    if (bulk.place.trim()) patch[p] = bulk.place.trim();
+    onChange(rows.map((r) => (ticked.has(r.key) ? { ...r, ...patch } : r)));
     setTicked(new Set());
-    setSaved(false);
   };
+  const named = rows.filter((r) => r.full_name.trim()).length;
 
   return (
-    <form
-      className="visit-card glass glass-strong visit-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(null);
-        setSaved(false);
-        startSave(async () => {
-          const res = await submitReturnJourneys(token, rows);
-          if (res.error) setError(res.error);
-          else {
-            setSaved(true);
-            router.refresh();
-          }
-        });
-      }}
-    >
-      <fieldset className="visit-group">
-        <legend>
-          <Users size={18} /> Your group&apos;s return journeys
-        </legend>
-        <p className="visit-help">
-          We have {travellers.length} people on your group&apos;s list, with their arrival flights. Please add how each person is
-          leaving the UK, so we can arrange airport drop-offs. Tick several people to fill them in at once.
-        </p>
-        <p className="muted-note">
-          {done} of {rows.length} filled in
-        </p>
+    <fieldset className="visit-group">
+      <legend>
+        <Users size={18} /> Your group
+      </legend>
+      <p className="visit-help">
+        Everyone travelling, with their arrival and return flights, so we can meet each flight and take everyone back to the
+        airport. Tick several people to fill in the same flight for all of them at once.
+      </p>
+      {named > 0 && <p className="muted-note">{named} {named === 1 ? "person" : "people"} on the list</p>}
 
+      {rows.length > 1 && (
         <div className="grp-bulk">
-          <strong>
-            <PlaneTakeoff size={16} /> Fill in for the people ticked below
-          </strong>
-          <div className="grp-bulk-grid">
-            <input type="date" className="input" aria-label="Date for the ticked people" value={bulk.departure_date} onChange={(e) => setBulk({ ...bulk, departure_date: e.target.value })} />
-            <input type="time" className="input" aria-label="Time for the ticked people" value={bulk.departure_time} onChange={(e) => setBulk({ ...bulk, departure_time: e.target.value })} />
-            <input className="input" maxLength={40} placeholder="Flight, e.g. AC859" aria-label="Flight for the ticked people" value={bulk.departure_flight} onChange={(e) => setBulk({ ...bulk, departure_flight: e.target.value })} />
-            <input className="input" maxLength={80} list="grp-airports" placeholder="Airport, e.g. Heathrow T2" aria-label="Airport for the ticked people" value={bulk.departure_place} onChange={(e) => setBulk({ ...bulk, departure_place: e.target.value })} />
+          <div className="grp-bulk-head">
+            <strong>Fill in for the people ticked below</strong>
+            <span className="grp-leg-pick" role="group" aria-label="Which journey">
+              <button type="button" aria-pressed={bulkLeg === "arrival"} onClick={() => setBulkLeg("arrival")}>
+                <PlaneLanding size={14} /> Arrival
+              </button>
+              <button type="button" aria-pressed={bulkLeg === "departure"} onClick={() => setBulkLeg("departure")}>
+                <PlaneTakeoff size={14} /> Return
+              </button>
+            </span>
+          </div>
+          <div className="grp-leg-grid">
+            <input type="date" className="input" aria-label="Date for the ticked people" value={bulk.date} onChange={(e) => setBulk({ ...bulk, date: e.target.value })} />
+            <input type="time" className="input" aria-label="Time for the ticked people" value={bulk.time} onChange={(e) => setBulk({ ...bulk, time: e.target.value })} />
+            <input className="input" maxLength={40} placeholder="Flight, e.g. AC859" aria-label="Flight for the ticked people" value={bulk.flight} onChange={(e) => setBulk({ ...bulk, flight: e.target.value })} />
+            <input className="input" maxLength={80} list="grp-airports" placeholder="Airport and terminal" aria-label="Airport for the ticked people" value={bulk.place} onChange={(e) => setBulk({ ...bulk, place: e.target.value })} />
           </div>
           <div className="grp-bulk-actions">
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setTicked(new Set(rows.filter((r) => !hasReturn(r)).map((r) => r.id)))}>
-              Tick everyone not filled in
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setTicked(new Set(rows.map((r) => r.key)))}>
+              Tick everyone
             </button>
             {ticked.size > 0 && (
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setTicked(new Set())}>
@@ -106,59 +132,78 @@ export function GroupForm({ token, travellers, departure }: { token: string; tra
             </button>
           </div>
         </div>
-
-        <ol className="grp-list">
-          {rows.map((r) => {
-            const t = by.get(r.id)!;
-            const arrives = [t.arrival_date ? shortDay(t.arrival_date) : null, hhmm(t.arrival_time), t.arrival_flight, t.arrival_place].filter(Boolean).join(" · ");
-            return (
-              <li key={r.id} className={`grp-row ${ticked.has(r.id) ? "is-ticked" : ""}`}>
-                <label className="grp-who">
-                  <input type="checkbox" checked={ticked.has(r.id)} onChange={(e) => tick(r.id, e.target.checked)} />
-                  <span>
-                    <strong>
-                      {t.ref != null && <span className="grp-ref">{t.ref}</span>}
-                      {t.full_name}
-                    </strong>
-                    <small>Arrives {arrives || "(not given)"}</small>
-                  </span>
-                </label>
-                <div className="grp-fields">
-                  <input type="date" className="input" aria-label={`${t.full_name}: departure date`} value={r.departure_date} onChange={(e) => set(r.id, { departure_date: e.target.value })} />
-                  <input type="time" className="input" aria-label={`${t.full_name}: departure time`} value={r.departure_time} onChange={(e) => set(r.id, { departure_time: e.target.value })} />
-                  <input className="input" maxLength={40} placeholder="Flight" aria-label={`${t.full_name}: flight`} value={r.departure_flight} onChange={(e) => set(r.id, { departure_flight: e.target.value })} />
-                  <input className="input" maxLength={80} list="grp-airports" placeholder="Airport" aria-label={`${t.full_name}: airport`} value={r.departure_place} onChange={(e) => set(r.id, { departure_place: e.target.value })} />
-                  <label className="grp-drop">
-                    <input type="checkbox" checked={r.needs_dropoff} onChange={(e) => set(r.id, { needs_dropoff: e.target.checked })} />
-                    Drop-off needed
-                  </label>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-        <datalist id="grp-airports">
-          {AIRPORTS.map((a) => (
-            <option key={a} value={a} />
-          ))}
-        </datalist>
-      </fieldset>
-
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
       )}
-      <div className="visit-submit">
-        {saved && (
-          <span className="visit-saved" role="status">
-            <CheckCircle2 size={17} /> Sent to the MKA Delegations team. JazakAllah.
-          </span>
+
+      <ol className="grp-list">
+        {rows.map((r, i) => (
+          <li key={r.key} className={`grp-row ${ticked.has(r.key) ? "is-ticked" : ""}`}>
+            <div className="grp-row-head">
+              <input type="checkbox" className="grp-tick" checked={ticked.has(r.key)} onChange={(e) => tick(r.key, e.target.checked)} aria-label={`Tick ${r.full_name || `person ${i + 1}`}`} />
+              <span className="grp-ref">{r.ref ?? i + 1}</span>
+              <input
+                className="input grp-name"
+                maxLength={120}
+                autoComplete="off"
+                placeholder="Full name"
+                aria-label={`Person ${i + 1}: full name`}
+                value={r.full_name}
+                onChange={(e) => set(r.key, { full_name: e.target.value })}
+              />
+              {!r.fromTeam && (
+                <button type="button" className="icon-link danger" title="Remove" onClick={() => onRemove(r)}>
+                  <Trash2 size={16} />
+                  <span className="sr-only">Remove {r.full_name || `person ${i + 1}`}</span>
+                </button>
+              )}
+            </div>
+            {(["arrival", "departure"] as const).map((leg) => {
+              const [d, t, f, p] = LEG_FIELDS(leg);
+              const who = r.full_name || `person ${i + 1}`;
+              return (
+                <div key={leg} className="grp-leg">
+                  <span className="grp-leg-label">
+                    {leg === "arrival" ? <PlaneLanding size={14} /> : <PlaneTakeoff size={14} />} {leg === "arrival" ? "Arrives" : "Returns"}
+                  </span>
+                  <div className="grp-leg-grid">
+                    <input type="date" className="input" aria-label={`${who}: ${leg} date`} value={r[d]} onChange={(e) => set(r.key, { [d]: e.target.value })} />
+                    <input type="time" className="input" aria-label={`${who}: ${leg} time`} value={r[t]} onChange={(e) => set(r.key, { [t]: e.target.value })} />
+                    <input className="input" maxLength={40} placeholder="Flight" aria-label={`${who}: ${leg} flight`} value={r[f]} onChange={(e) => set(r.key, { [f]: e.target.value })} />
+                    <input className="input" maxLength={80} list="grp-airports" placeholder="Airport and terminal" aria-label={`${who}: ${leg} airport`} value={r[p]} onChange={(e) => set(r.key, { [p]: e.target.value })} />
+                  </div>
+                </div>
+              );
+            })}
+            <div className="grp-needs">
+              {(
+                [
+                  ["needs_pickup", "Airport pickup"],
+                  ["needs_dropoff", "Airport drop-off"],
+                  ["needs_accommodation", "Accommodation"],
+                ] as const
+              ).map(([k, label]) => (
+                <label key={k} className="grp-drop">
+                  <input type="checkbox" checked={r[k]} onChange={(e) => set(r.key, { [k]: e.target.checked })} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="khadim-actions">
+        {rows.length < 1000 && (
+          <button type="button" className="btn btn-sm driver-add" onClick={() => onChange([...rows, blank()])}>
+            <Plus size={15} /> Add a person
+          </button>
         )}
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          {saving ? "Sending…" : "Save return journeys"}
-        </button>
       </div>
-    </form>
+      <datalist id="grp-airports">
+        {AIRPORTS.map((a) => (
+          <option key={a} value={a} />
+        ))}
+      </datalist>
+    </fieldset>
   );
 }
+
+export const emptyGroupRow = blank;

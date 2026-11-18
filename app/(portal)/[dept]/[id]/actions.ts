@@ -388,7 +388,6 @@ export async function saveTraveller(id: string, travellerId: string | null, fd: 
       needs_accommodation: yes(fd, "needs_accommodation"),
       needs_pickup: yes(fd, "needs_pickup"),
       needs_dropoff: yes(fd, "needs_dropoff"),
-      needs_bed: yes(fd, "needs_bed"),
       notes: text(fd, "notes", "Notes", { max: 1000 }),
     };
     const res = travellerId

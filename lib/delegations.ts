@@ -323,8 +323,9 @@ export type Traveller = {
   needs_accommodation?: boolean;
   needs_pickup: boolean;
   needs_dropoff: boolean;
-  needs_bed?: boolean;
   notes?: string | null;
+  /** Who added them: the team, or the AeK on their link. */
+  source?: "team" | "aek";
 };
 
 export type TravelLeg = "arrival" | "departure";

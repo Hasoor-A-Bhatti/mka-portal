@@ -21,7 +21,6 @@ import {
   Phone,
   Trash2,
   Upload,
-  UserRound,
   Users,
   Utensils,
 } from "lucide-react";
@@ -31,8 +30,6 @@ import {
   AEK_TITLE,
   DAY_PARTS,
   aekTravelLine,
-  allergyLabel,
-  allergySummary,
   dayRange,
   daysLabel,
   fmtDay,
@@ -204,8 +201,6 @@ export function InfoPanel({
         </section>
 
         <ActivitiesPanel update={u} hasLink={Boolean(aek.share.link)} />
-
-        <KhuddamPanel update={u} hasLink={Boolean(aek.share.link)} />
 
         <DriversPanel drivers={region.drivers} hasLink={Boolean(region.share.link)} />
 
@@ -638,7 +633,7 @@ function DriversPanel({ drivers, hasLink }: { drivers: Driver[]; hasLink: boolea
   );
 }
 
-// ---------- Activities and Khuddam (from the AeK link) ----------
+// ---------- Activities (from the AeK link) ----------
 
 function AekPanelHead({ title, note, children }: { title: string; note: string; children?: ReactNode }) {
   return (
@@ -696,61 +691,6 @@ function ActivitiesPanel({ update: u, hasLink }: { update: AekUpdate | null; has
             </tbody>
           </table>
         </div>
-      )}
-    </section>
-  );
-}
-
-function KhuddamPanel({ update: u, hasLink }: { update: AekUpdate | null; hasLink: boolean }) {
-  const list = u?.khuddam ?? [];
-  const withAllergy = list.filter((k) => k.allergy && k.allergy !== "none").length;
-  const summary = allergySummary(list);
-  return (
-    <section className="panel glass">
-      <AekPanelHead title="Khuddam" note="Everyone in the group, with their flight and any allergy.">
-        <span className="khuddam-count">
-          <span className="aek-chip" title={AEK_TITLE}>
-            From AeK
-          </span>
-          {list.length > 0 && <span className="count-pill">{list.length}</span>}
-        </span>
-      </AekPanelHead>
-      {list.length === 0 ? (
-        <p className="muted-note">
-          {u ? "The AeK hasn't listed any khuddam yet." : hasLink ? "Waiting for the AeK to fill in their link." : "Share the AeK link so the AeK can list the group."}
-        </p>
-      ) : (
-        <>
-          {summary && (
-            <p className="aek-allergies">
-              <AlertTriangle size={14} /> {withAllergy} with allergies: <strong>{summary}</strong>
-            </p>
-          )}
-          <ul className="driver-list khadim-list">
-            {list.map((k, i) => {
-              const allergy = allergyLabel(k);
-              const has = Boolean(k.allergy && k.allergy !== "none");
-              return (
-                <li key={i}>
-                  <span className="avatar driver-avatar" aria-hidden>
-                    {(k.name ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || <UserRound size={14} />}
-                  </span>
-                  <div>
-                    <strong>{k.name ?? "Name not given"}</strong>
-                    <small>{k.flight ? <>Flight {k.flight}</> : "No flight given"}</small>
-                  </div>
-                  {allergy ? (
-                    <span className={`allergy-chip ${has ? "is-allergy" : "is-none"}`}>
-                      {has && <AlertTriangle size={12} />} {allergy}
-                    </span>
-                  ) : (
-                    <span className="allergy-chip is-unknown">Allergies not given</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </>
       )}
     </section>
   );

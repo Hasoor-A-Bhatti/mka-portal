@@ -20,7 +20,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MEALS, dayRange, daysLabel, fmtDay, hhmm, spanDays, stayDays, telHref, type Driver, type MealKey, type Traveller } from "@/lib/delegations";
 import { SiteFooter, Watermark } from "@/components/brand";
 import { DriversForm } from "./drivers-form";
-import { BedsNeeded, RunsSection, runsSummary } from "./runs";
+import { RunsSection, runsSummary } from "./runs";
 
 export const dynamic = "force-dynamic";
 
@@ -285,7 +285,6 @@ function RegionBrief({ token, view, travellers }: { token: string; view: RegionV
         <h2>
           <BedDouble size={18} /> Accommodation
         </h2>
-        <BedsNeeded list={travellers} />
         {view.stays.length === 0 ? (
           <p className="muted-note">Not planned yet. It will appear here once the Delegations team adds it.</p>
         ) : (
