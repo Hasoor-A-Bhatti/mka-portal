@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { MapPin, MessageSquareText, Pencil, Search, Tag, PackagePlus, PackageCheck } from "lucide-react";
 import { STORE_NAME, addDays, dateRange, lenderOf, loanOverdue, todayISO, type Loan, type Message, type SearchResult } from "@/lib/storage";
-import { cancelRequest, requestItem, updateRequest } from "@/app/(portal)/equipment-loans/actions";
+import { cancelRequest, collectRequest, requestItem, updateRequest } from "@/app/(portal)/equipment-loans/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { useCanEdit } from "@/components/edit-access";
 import { LoanCard, Pill, Section } from "./bits";
@@ -301,7 +301,7 @@ export function MyLoansPanel({ loans, messages }: { loans: Loan[]; messages: Mes
 
   return (
     <div className="stack">
-      <Section title="Approved: ready to collect" count={ready.length} note="Collect from the location shown. Check the lender's message for any instructions.">
+      <Section title="Approved: ready to collect" count={ready.length} note="Collect from the location shown (check the lender's message for any instructions), then press I've collected it so it moves to On loan to you.">
         {ready.length === 0 ? (
           <p className="muted-note">Nothing approved and waiting to be collected.</p>
         ) : (
@@ -313,6 +313,17 @@ export function MyLoansPanel({ loans, messages }: { loans: Loan[]; messages: Mes
                 </small>
                 {canEdit && (
                   <>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={pending}
+                      onClick={() =>
+                        window.confirm(`Confirm you now have ${l.quantity > 1 ? `all ${l.quantity} × ` : ""}${l.item_name} with you?`) &&
+                        run(() => collectRequest(l.id))
+                      }
+                    >
+                      <PackageCheck size={15} /> I&apos;ve collected it
+                    </button>
                     <button type="button" className="btn btn-sm btn-ghost btn-danger" disabled={pending} onClick={() => window.confirm(`You no longer need ${l.item_name}? ${lenderOf(l)} will be told.`) && run(() => cancelRequest(l.id))}>
                       No longer needed
                     </button>

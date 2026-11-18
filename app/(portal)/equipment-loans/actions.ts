@@ -75,6 +75,23 @@ export async function cancelRequest(id: string): Promise<Result> {
   return done(id);
 }
 
+/** The borrower confirms they now have an approved item with them. */
+export async function collectRequest(id: string): Promise<Result> {
+  const c = await borrower();
+  if ("error" in c) return { error: c.error };
+  if (!isId(id)) return { error: "Pick a request." };
+  const { data, error } = await c.supabase
+    .from("storage_loans")
+    .update({ status: "Collected" })
+    .eq("id", id)
+    .eq("requested_by", c.userId)
+    .eq("status", "Approved")
+    .select("id");
+  if (error) return { error: friendly(error) };
+  if (!data?.length) return { error: "This request isn't waiting to be collected any more. Refresh to see the latest." };
+  return done(id);
+}
+
 export async function borrowerMessage(loanId: string, body: string): Promise<Result> {
   const c = await borrower();
   if ("error" in c) return { error: c.error };

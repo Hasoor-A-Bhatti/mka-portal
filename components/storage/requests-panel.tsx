@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, MessageSquareText, PackageCheck, Undo2, X, CalendarClock } from "lucide-react";
+import { Check, MessageSquareText, Undo2, X, CalendarClock } from "lucide-react";
 import { bookedFor, collectionLate, loanOverdue, todayISO, type Item, type Loan, type Message } from "@/lib/storage";
 import { changeLoanDates, decideLoan, setLoanStatus } from "@/app/(portal)/storage/actions";
 import { ownerChangeDates, ownerDecide, ownerSetStatus } from "@/app/(portal)/equipment-loans/actions";
@@ -99,7 +99,11 @@ export function RequestsPanel({
         )}
       </Section>
 
-      <Section title="Approved: to be collected" count={approved.length} note="Mark each one collected when the borrower picks it up.">
+      <Section
+        title="Approved: to be collected"
+        count={approved.length}
+        note="Waiting for the borrower to pick up. They mark it collected themselves, and it moves to Out on loan."
+      >
         {approved.length === 0 ? (
           <p className="muted-note">Nothing waiting to be collected.</p>
         ) : (
@@ -109,9 +113,6 @@ export function RequestsPanel({
                 {collectionLate(l, today) && <small className="ln-avail is-short">Collection date has passed</small>}
                 {canEdit && (
                   <>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => setStep({ loan: l, action: "Collected" })}>
-                      <PackageCheck size={15} /> Collected
-                    </button>
                     <button type="button" className="btn btn-sm btn-ghost" onClick={() => setStep({ loan: l, action: "dates" })}>
                       <CalendarClock size={15} /> Dates
                     </button>

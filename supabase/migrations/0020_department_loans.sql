@@ -8,6 +8,8 @@
 --     They approve or reject it, with a message, under "Borrowing requests"
 --     on their Equipment Loans page, and handle collection and return.
 --   * "Other" items: the Storage department admin decides, as before.
+--   * Once approved, the borrower marks the request collected when they
+--     have the item; the lender marks it returned when it's back.
 --   * MKA Storage sees every loan and conversation on its Loan log
 --     ("RQ Masroor is borrowing 100 chairs from Sehat-e-Jismani, 3 to 5
 --     Dec"), but only takes part in the "Other" ones.
@@ -192,10 +194,21 @@ begin
   mine := auth.uid() = old.requested_by;
 
   if not staff and not owner then
-    -- Borrowers: change the details while it's pending, or cancel before collection.
+    -- Borrowers: change the details while it's pending, cancel before collection,
+    -- and say when they've collected an approved item.
     new.decision_note := old.decision_note;
     new.return_note := old.return_note;
     if new.status is distinct from old.status then
+      if new.status = 'Collected' and old.status = 'Approved' and mine then
+        new.quantity := old.quantity;
+        new.start_date := old.start_date;
+        new.end_date := old.end_date;
+        new.decided_by_name := old.decided_by_name;
+        new.decided_at := old.decided_at;
+        new.collected_at := now();
+        new.returned_at := old.returned_at;
+        return new;
+      end if;
       if not (new.status = 'Cancelled' and old.status in ('Pending', 'Approved')) then
         raise exception 'Only % can change where a request has got to.', coalesce(dept, 'MKA Storage') using errcode = '42501';
       end if;
