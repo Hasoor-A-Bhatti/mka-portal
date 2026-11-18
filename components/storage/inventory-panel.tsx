@@ -6,6 +6,7 @@ import {
   ADJUSTMENTS,
   CATEGORY_SUGGESTIONS,
   ITEM_STATUSES,
+  OWNER_OTHER,
   OWNER_SUGGESTIONS,
   bySite,
   options,
@@ -26,12 +27,15 @@ export function InventoryPanel({
   items,
   locations,
   loans,
+  departments = [],
   canManage,
   initialLocation = "",
 }: {
   items: Item[];
   locations: Location[];
   loans: Loan[];
+  /** Departments an item can belong to; empty before migration 0020. */
+  departments?: string[];
   canManage: boolean;
   initialLocation?: string;
 }) {
@@ -204,6 +208,7 @@ export function InventoryPanel({
         <ItemDialog
           item={editing.item}
           locations={locations}
+          departments={departments}
           canManage={canManage}
           defaultLocation={location && location !== "none" ? location : ""}
           onAdjust={(kind) => editing.item && (setAdjusting({ item: editing.item, kind }), setEditing(null))}
@@ -218,6 +223,7 @@ export function InventoryPanel({
 function ItemDialog({
   item: i,
   locations,
+  departments,
   canManage,
   defaultLocation,
   onAdjust,
@@ -225,6 +231,7 @@ function ItemDialog({
 }: {
   item: Item | null;
   locations: Location[];
+  departments: string[];
   canManage: boolean;
   defaultLocation: string;
   onAdjust: (kind: AdjustKind) => void;
@@ -272,10 +279,14 @@ function ItemDialog({
               ))}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="it-owner">Owned by</label>
-            <input id="it-owner" name="owned_by" className="input" list="st-owners" maxLength={120} defaultValue={i?.owned_by ?? ""} placeholder="Department it belongs to" />
-          </div>
+          {departments.length > 0 ? (
+            <OwnerField value={i?.owned_by ?? null} departments={departments} />
+          ) : (
+            <div className="field">
+              <label htmlFor="it-owner">Owned by</label>
+              <input id="it-owner" name="owned_by" className="input" list="st-owners" maxLength={120} defaultValue={i?.owned_by ?? ""} placeholder="Department it belongs to" />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="it-cat">Category</label>
             <input id="it-cat" name="category" className="input" list="st-categories" maxLength={80} defaultValue={i?.category ?? ""} />
@@ -474,5 +485,31 @@ function AdjustDialog({ item: i, initial, onClose }: { item: Item; initial: Adju
         </div>
       </form>
     </Sheet>
+  );
+}
+
+/** Owner: one of the departments on the borrowers list, or Other (MKA Store). Its head decides loan requests. */
+function OwnerField({ value, departments }: { value: string | null; departments: string[] }) {
+  const match = departments.find((d) => d.toLowerCase() === (value ?? "").trim().toLowerCase());
+  const [owner, setOwner] = useState(match ?? OWNER_OTHER);
+  // An older free-text owner that isn't a department counts as Other.
+  const legacy = value && !match && value !== OWNER_OTHER ? value : null;
+  return (
+    <div className="field">
+      <label htmlFor="it-owner">Owner</label>
+      <select id="it-owner" name="owned_by" className="select" value={owner} onChange={(e) => setOwner(e.target.value)}>
+        <option value={OWNER_OTHER}>Other (MKA Store)</option>
+        {departments.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+      <small className="field-hint">
+        {owner === OWNER_OTHER
+          ? `MKA Store decides loan requests for this item.${legacy ? ` (Was "${legacy}".)` : ""}`
+          : `Loan requests go to the head of ${owner} to approve or reject.`}
+      </small>
+    </div>
   );
 }

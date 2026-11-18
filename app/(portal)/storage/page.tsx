@@ -22,16 +22,21 @@ export default async function StoragePage({ searchParams }: Props) {
     );
   }
 
-  const [itemsRes, locationsRes, loansRes, messagesRes, borrowersRes] = await Promise.all([
+  const [itemsRes, locationsRes, loansRes, messagesRes, borrowersRes, departmentsRes] = await Promise.all([
     supabase.from("storage_items").select("*").order("item_name"),
     supabase.from("storage_locations").select("*").order("position"),
     supabase.from("storage_loans").select("*").order("created_at", { ascending: false }).limit(1000),
     supabase.from("storage_loan_messages").select("*").order("created_at").limit(3000),
     tab === "borrowers" ? supabase.rpc("storage_borrower_list") : Promise.resolve({ data: [], error: null }),
+    // Departments an item can belong to (empty before migration 0020).
+    supabase.rpc("storage_owner_departments"),
   ]);
 
   const messages = (messagesRes.data ?? []) as Message[];
-  const unreadBefore = messages.filter((m) => !m.from_storage && !m.read_at).length;
+  const loans = (loansRes.data ?? []) as Loan[];
+  // Only MKA Store's own loans: department-owned ones are answered by that department.
+  const storeLoanIds = new Set(loans.filter((l) => !l.owner_department).map((l) => l.id));
+  const unreadBefore = messages.filter((m) => storeLoanIds.has(m.loan_id) && !m.from_storage && !m.read_at).length;
   // Opening Messages marks borrowers' messages as read (they stay highlighted on this visit).
   if (tab === "messages" && unreadBefore && canEdit("storage")) await supabase.rpc("storage_messages_read", { p_side: "storage" });
 
@@ -42,7 +47,8 @@ export default async function StoragePage({ searchParams }: Props) {
       data={{
         items: (itemsRes.data ?? []) as Item[],
         locations: (locationsRes.data ?? []) as Location[],
-        loans: (loansRes.data ?? []) as Loan[],
+        loans,
+        departments: ((departmentsRes.data ?? []) as unknown[]).map(String),
         messages,
         borrowers: (borrowersRes.data ?? []) as Borrower[],
         borrowersError: borrowersRes.error ? "The borrowers list didn't load. Has 0014_storage_loans.sql been run?" : null,

@@ -5,19 +5,42 @@ import Link from "next/link";
 import { Check, MessageSquareText, PackageCheck, Undo2, X, CalendarClock } from "lucide-react";
 import { bookedFor, collectionLate, loanOverdue, todayISO, type Item, type Loan, type Message } from "@/lib/storage";
 import { changeLoanDates, decideLoan, setLoanStatus } from "@/app/(portal)/storage/actions";
+import { ownerChangeDates, ownerDecide, ownerSetStatus } from "@/app/(portal)/equipment-loans/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { useCanEdit } from "@/components/edit-access";
 import { LoanCard, Section } from "./bits";
 
 type Step = { loan: Loan; action: "Approved" | "Rejected" | "Collected" | "Returned" | "Cancelled" | "dates" };
 
-export function RequestsPanel({ loans, items, messages, canManage }: { loans: Loan[]; items: Item[]; messages: Message[]; canManage: boolean }) {
+type Side = "store" | "owner";
+
+/**
+ * Requests to approve and loans to follow through.
+ *   store: MKA Store's own items ("Owner: Other"), on the Storage page.
+ *   owner: a department's items, under Borrowing requests for that department's head.
+ */
+export function RequestsPanel({
+  loans,
+  items = [],
+  messages,
+  canManage,
+  side = "store",
+  department,
+}: {
+  loans: Loan[];
+  items?: Item[];
+  messages: Message[];
+  canManage: boolean;
+  side?: Side;
+  department?: string | null;
+}) {
   const canEdit = useCanEdit();
+  const owner = side === "owner";
   const today = todayISO();
   const [step, setStep] = useState<Step | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const unread = (id: string) => messages.filter((m) => m.loan_id === id && !m.from_storage && !m.read_at).length;
+  const unread = (id: string) => messages.filter((m) => m.loan_id === id && (m.author_role ?? (m.from_storage ? "store" : "borrower")) === "borrower" && !m.read_at).length;
   const pending = loans.filter((l) => l.status === "Pending").sort((a, b) => a.created_at.localeCompare(b.created_at));
   const approved = loans.filter((l) => l.status === "Approved").sort((a, b) => a.start_date.localeCompare(b.start_date));
   const out = loans
@@ -26,7 +49,7 @@ export function RequestsPanel({ loans, items, messages, canManage }: { loans: Lo
   const done = loans.filter((l) => ["Returned", "Rejected", "Cancelled"].includes(l.status)).sort((a, b) => (b.updated_at ?? b.created_at).localeCompare(a.updated_at ?? a.created_at));
 
   const message = (l: Loan) => (
-    <Link href={`/storage?tab=messages&loan=${l.id}`} className="btn btn-sm btn-ghost">
+    <Link href={owner ? `/equipment-loans?tab=messages&loan=${l.id}` : `/storage?tab=messages&loan=${l.id}`} className="btn btn-sm btn-ghost">
       <MessageSquareText size={15} /> Message
     </Link>
   );
@@ -36,7 +59,13 @@ export function RequestsPanel({ loans, items, messages, canManage }: { loans: Lo
       <Section
         title="Waiting for approval"
         count={pending.length}
-        note={canManage ? "Approve or reject each request. You can add a message, which the borrower sees straight away." : "Only the Storage department admin can approve or reject requests."}
+        note={
+          owner
+            ? `Other departments asking to borrow ${department ?? "your department"}'s items. Approve or reject each one; you can add a message, which the borrower sees straight away.`
+            : canManage
+              ? "Requests for MKA Store's own items (Owner: Other). Approve or reject each one; you can add a message, which the borrower sees straight away. Items owned by a department are decided by that department: see the Loan log."
+              : "Only the Storage department admin can approve or reject requests."
+        }
       >
         {pending.length === 0 ? (
           <p className="muted-note">No requests waiting.</p>
@@ -47,12 +76,14 @@ export function RequestsPanel({ loans, items, messages, canManage }: { loans: Lo
               const free = item ? item.quantity - bookedFor(loans, item.id, l.start_date, l.end_date, l.id) : 0;
               return (
                 <LoanCard key={l.id} loan={l} staff today={today} unread={unread(l.id)}>
-                  <small className={`ln-avail ${free < l.quantity ? "is-short" : ""}`}>
-                    {item ? `${Math.max(free, 0)} of ${item.quantity} free for these dates` : "No longer in the catalogue"}
-                  </small>
+                  {!owner && (
+                    <small className={`ln-avail ${free < l.quantity ? "is-short" : ""}`}>
+                      {item ? `${Math.max(free, 0)} of ${item.quantity} free for these dates` : "No longer in the catalogue"}
+                    </small>
+                  )}
                   {canManage && (
                     <>
-                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setStep({ loan: l, action: "Approved" })} disabled={!item}>
+                      <button type="button" className="btn btn-primary btn-sm" onClick={() => setStep({ loan: l, action: "Approved" })} disabled={!owner && !item}>
                         <Check size={15} /> Approve
                       </button>
                       <button type="button" className="btn btn-sm" onClick={() => setStep({ loan: l, action: "Rejected" })}>
@@ -143,7 +174,12 @@ export function RequestsPanel({ loans, items, messages, canManage }: { loans: Lo
         )}
       </Section>
 
-      {step && (step.action === "dates" ? <DatesDialog loan={step.loan} onClose={() => setStep(null)} /> : <StepDialog step={step} items={items} loans={loans} onClose={() => setStep(null)} />)}
+      {step &&
+        (step.action === "dates" ? (
+          <DatesDialog loan={step.loan} side={side} onClose={() => setStep(null)} />
+        ) : (
+          <StepDialog step={step} items={items} loans={loans} side={side} onClose={() => setStep(null)} />
+        ))}
     </div>
   );
 }
@@ -156,7 +192,7 @@ const STEP_TEXT = {
   Cancelled: { title: "Cancel", button: "Cancel request", label: "Message to the borrower (optional)", hint: "Why it's been cancelled" },
 } as const;
 
-function StepDialog({ step, items, loans, onClose }: { step: Step; items: Item[]; loans: Loan[]; onClose: () => void }) {
+function StepDialog({ step, items, loans, side, onClose }: { step: Step; items: Item[]; loans: Loan[]; side: Side; onClose: () => void }) {
   const { pending, error, run } = useRun();
   const [note, setNote] = useState("");
   const l = step.loan;
@@ -170,7 +206,9 @@ function StepDialog({ step, items, loans, onClose }: { step: Step; items: Item[]
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => (a === "Approved" || a === "Rejected" ? decideLoan(l.id, a, note) : setLoanStatus(l.id, a, note)), onClose);
+          const decide = side === "owner" ? ownerDecide : decideLoan;
+          const move = side === "owner" ? ownerSetStatus : setLoanStatus;
+          run(() => (a === "Approved" || a === "Rejected" ? decide(l.id, a, note) : move(l.id, a, note)), onClose);
         }}
       >
         <div className="sheet-body">
@@ -180,7 +218,11 @@ function StepDialog({ step, items, loans, onClose }: { step: Step; items: Item[]
             </p>
           )}
           {a === "Returned" && (
-            <p className="muted-note wide">If anything didn&apos;t come back, mark it as missing on the Inventory tab afterwards.</p>
+            <p className="muted-note wide">
+              {side === "owner"
+                ? "If anything didn't come back, let MKA Storage know so it can be marked as missing."
+                : "If anything didn't come back, mark it as missing on the Inventory tab afterwards."}
+            </p>
           )}
           {a === "Collected" && <p className="muted-note wide">Confirm {l.requester_name ?? "the borrower"} has picked up {l.quantity > 1 ? `all ${l.quantity}` : "the item"}.</p>}
           {t.label && (
@@ -206,14 +248,14 @@ function StepDialog({ step, items, loans, onClose }: { step: Step; items: Item[]
   );
 }
 
-function DatesDialog({ loan: l, onClose }: { loan: Loan; onClose: () => void }) {
+function DatesDialog({ loan: l, side, onClose }: { loan: Loan; side: Side; onClose: () => void }) {
   const { pending, error, run } = useRun();
   return (
     <Sheet title={`Change dates: ${l.item_name}`} subtitle={`${l.ref} · let the borrower know with a message.`} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => changeLoanDates(l.id, new FormData(e.currentTarget)), onClose);
+          run(() => (side === "owner" ? ownerChangeDates : changeLoanDates)(l.id, new FormData(e.currentTarget)), onClose);
         }}
       >
         <div className="sheet-body">

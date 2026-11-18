@@ -6,7 +6,7 @@ export type Result = { ok?: boolean; error?: string; id?: string };
 
 type DbError = { code?: string; message: string };
 
-const MIGRATION = "Run supabase/migrations/0014_storage_loans.sql in Supabase first.";
+const MIGRATION = "Run the Storage migrations (0014 and 0020) in Supabase first.";
 
 export function friendly(error: DbError): string {
   const code = error.code ?? "";

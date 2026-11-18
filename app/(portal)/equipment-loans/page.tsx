@@ -33,18 +33,33 @@ export default async function EquipmentLoansPage({ searchParams }: Props) {
   if (!from && to) from = to;
   if (from && to && to < from) to = from;
 
-  const [loansRes, messagesRes, searchRes] = await Promise.all([
+  // The department this person heads on the borrowers list (null before migration 0020).
+  const { data: deptData } = await supabase.rpc("storage_my_department");
+  const department = typeof deptData === "string" && deptData ? deptData : null;
+
+  const [loansRes, ownedRes, messagesRes, searchRes] = await Promise.all([
     // Only this person's own requests, even for Storage staff who can see everyone's.
     supabase.from("storage_loans").select("*").eq("requested_by", user.id).order("created_at", { ascending: false }).limit(500),
+    // Borrowing requests: other people asking for this department's items.
+    department
+      ? supabase.from("storage_loans").select("*").ilike("owner_department", department).order("created_at", { ascending: false }).limit(1000)
+      : Promise.resolve({ data: [], error: null }),
     supabase.from("storage_loan_messages").select("*").order("created_at").limit(2000),
     searched ? supabase.rpc("storage_loan_search", { p_q: q, p_from: from || null, p_to: to || from || null }) : Promise.resolve({ data: [], error: null }),
   ]);
 
   const loans = (loansRes.data ?? []) as Loan[];
-  const ids = new Set(loans.map((l) => l.id));
-  const messages = ((messagesRes.data ?? []) as Message[]).filter((m) => ids.has(m.loan_id));
-  const unreadBefore = messages.filter((m) => m.from_storage && !m.read_at).length;
-  if (tab === "messages" && unreadBefore) await supabase.rpc("storage_messages_read", { p_side: "borrower" });
+  const owned = (ownedRes.data ?? []) as Loan[];
+  const ownIds = new Set(loans.map((l) => l.id));
+  // Requests for my department's items made by someone else (my own are under My loans).
+  const lendIds = new Set(owned.filter((l) => !ownIds.has(l.id)).map((l) => l.id));
+  const messages = ((messagesRes.data ?? []) as Message[]).filter((m) => ownIds.has(m.loan_id) || lendIds.has(m.loan_id));
+  const isBorrowerMsg = (m: Message) => (m.author_role ?? (m.from_storage ? "store" : "borrower")) === "borrower";
+  const unreadOwn = messages.filter((m) => ownIds.has(m.loan_id) && !isBorrowerMsg(m) && !m.read_at).length;
+  const unreadLend = messages.filter((m) => lendIds.has(m.loan_id) && isBorrowerMsg(m) && !m.read_at).length;
+  const unreadBefore = unreadOwn + unreadLend;
+  if (tab === "messages" && unreadOwn) await supabase.rpc("storage_messages_read", { p_side: "borrower" });
+  if (tab === "messages" && unreadLend) await supabase.rpc("storage_messages_read", { p_side: "owner" });
 
   return (
     <LoansView
@@ -61,6 +76,8 @@ export default async function EquipmentLoansPage({ searchParams }: Props) {
         error: searchRes.error ? friendly(searchRes.error) : null,
       }}
       loanId={params.loan}
+      meId={user.id}
+      lending={{ department, loans: owned }}
       canEdit={canEdit("equipment-loans")}
       firstName={firstName}
       error={loansRes.error ? friendly(loansRes.error) : null}

@@ -35,6 +35,10 @@ export const CATEGORY_SUGGESTIONS = [
 
 export const OWNER_SUGGESTIONS = ["MKA Storage", "Delegations", "Fleet", "Jaidad", "Special Arrangements"];
 
+/** Owner for items MKA Store looks after itself (it decides their loans). */
+export const OWNER_OTHER = "Other";
+export const STORE_NAME = "MKA Store";
+
 type Stamped = { created_at: string; updated_at?: string };
 
 export type Location = Stamped & {
@@ -83,6 +87,8 @@ export type Loan = Stamped & {
   item_name: string;
   location_name: string | null;
   owned_by: string | null;
+  /** The department that decides this request (0020). Null: MKA Store decides. */
+  owner_department?: string | null;
   quantity: number;
   start_date: string;
   end_date: string;
@@ -106,6 +112,8 @@ export type Message = Stamped & {
   loan_id: string;
   body: string;
   from_storage: boolean;
+  /** Who wrote it (0020). Older messages only have from_storage. */
+  author_role?: "borrower" | "owner" | "store" | null;
   author_name: string | null;
   read_at: string | null;
 };
@@ -126,9 +134,20 @@ export type SearchResult = {
   location_name: string | null;
   site: string | null;
   owned_by: string | null;
+  /** The department that would decide a request (0020). Null: MKA Store. */
+  owner_department?: string | null;
   quantity: number;
   available: number;
 };
+
+/** Who decides a loan: the owning department, or MKA Store. */
+export const lenderOf = (l: { owner_department?: string | null }) => l.owner_department || STORE_NAME;
+
+/** Who wrote a message, allowing for messages from before 0020. */
+export const roleOf = (m: Pick<Message, "author_role" | "from_storage">) => m.author_role ?? (m.from_storage ? "store" : "borrower");
+
+/** Loans MKA Store decides itself (no owning department). */
+export const storeDecides = (l: Pick<Loan, "owner_department">) => !l.owner_department;
 
 /** Today in London, as YYYY-MM-DD. */
 export function todayISO(now = new Date()) {

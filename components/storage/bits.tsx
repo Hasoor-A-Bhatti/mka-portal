@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CalendarRange, MapPin, Phone, Tag, UserRound, MessageSquareText } from "lucide-react";
-import { dateRange, loanOverdue, collectionLate, loanTone, todayISO, type Loan } from "@/lib/storage";
+import { dateRange, lenderOf, loanOverdue, collectionLate, loanTone, todayISO, type Loan } from "@/lib/storage";
 import { formatDate } from "@/lib/format";
 import { vars } from "@/lib/css";
 
@@ -54,12 +54,8 @@ export function LoanCard({
         </small>
         <small>
           <MapPin size={14} /> {l.location_name ?? "Location to be confirmed"}
-          {l.owned_by && (
-            <>
-              {" "}
-              <Tag size={13} /> Owned by {l.owned_by}
-            </>
-          )}
+          {" "}
+          <Tag size={13} /> Owned by {lenderOf(l)}
         </small>
         {staff && (
           <small>
@@ -76,7 +72,7 @@ export function LoanCard({
         {l.purpose && <p className="ln-purpose">{l.purpose}</p>}
         {l.decision_note && (
           <p className={`ln-note ${l.status === "Rejected" ? "is-no" : ""}`}>
-            <b>{l.decided_by_name ?? "MKA Storage"}:</b> {l.decision_note}
+            <b>{l.decided_by_name ?? lenderOf(l)}:</b> {l.decision_note}
           </p>
         )}
         {l.return_note && (

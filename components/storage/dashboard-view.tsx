@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDepartment } from "@/lib/departments";
-import { collectionLate, loanOverdue, todayISO, type Borrower, type Item, type Loan, type Location, type Message } from "@/lib/storage";
+import { collectionLate, loanOverdue, storeDecides, todayISO, type Borrower, type Item, type Loan, type Location, type Message } from "@/lib/storage";
+import { LiveRefresh } from "@/components/live-refresh";
 import { vars } from "@/lib/css";
 import { EditAccess } from "@/components/edit-access";
 import { InventoryPanel } from "./inventory-panel";
@@ -8,11 +9,13 @@ import { LocationsPanel } from "./locations-panel";
 import { RequestsPanel } from "./requests-panel";
 import { MessagesPanel } from "./messages-panel";
 import { BorrowersPanel } from "./borrowers-panel";
+import { LogPanel } from "./log-panel";
 
 export const STORAGE_TABS = [
   { key: "inventory", label: "Inventory" },
   { key: "locations", label: "Locations" },
   { key: "requests", label: "Loan requests" },
+  { key: "log", label: "Loan log" },
   { key: "messages", label: "Messages" },
   { key: "borrowers", label: "Borrowers" },
 ] as const;
@@ -23,6 +26,8 @@ export type StorageData = {
   locations: Location[];
   loans: Loan[];
   messages: Message[];
+  /** Departments an item can belong to (the office leads on the borrowers list). */
+  departments: string[];
   borrowers: Borrower[];
   borrowersError: string | null;
 };
@@ -54,11 +59,16 @@ export function StorageDashboard({
   const dept = getDepartment("storage")!;
   const Icon = dept.icon;
   const { items, locations, loans, messages } = data;
+  // MKA Store decides only its own items; department-owned loans are on the Loan log.
+  const storeLoans = loans.filter(storeDecides);
+  const storeIds = new Set(storeLoans.map((l) => l.id));
+  const storeMessages = messages.filter((m) => storeIds.has(m.loan_id));
+  const deptActive = loans.filter((l) => l.owner_department && ["Pending", "Approved", "Collected"].includes(l.status)).length;
 
   const units = items.reduce((n, i) => n + i.quantity, 0);
   const lowOrOut = items.filter((i) => i.status === "Low stock" || i.status === "Out of stock").length;
   const missing = items.reduce((n, i) => n + i.missing_qty, 0);
-  const pending = loans.filter((l) => l.status === "Pending").length;
+  const pending = storeLoans.filter((l) => l.status === "Pending").length;
   const outLoans = loans.filter((l) => l.status === "Collected");
   const overdue = outLoans.filter((l) => loanOverdue(l, today)).length;
   const toCollect = loans.filter((l) => l.status === "Approved").length;
@@ -67,11 +77,13 @@ export function StorageDashboard({
   const badges: Partial<Record<StorageTab, { n: number; alert?: boolean }>> = {
     requests: pending || overdue ? { n: pending + overdue, alert: true } : undefined,
     messages: unreadBefore && tab !== "messages" ? { n: unreadBefore, alert: true } : undefined,
+    log: deptActive ? { n: deptActive } : undefined,
   };
 
   return (
     <EditAccess canEdit={canEdit}>
       <div style={vars({ "--accent": dept.accent }, { display: "contents" })}>
+        <LiveRefresh channel="storage" tables={["storage_loans", "storage_loan_messages", "storage_items"]} />
         <header className="page-head rise">
           <div className="page-title">
             <span className="dept-icon">
@@ -133,10 +145,13 @@ export function StorageDashboard({
         </nav>
 
         <div className="tab-body rise" style={vars({ "--i": "3" })} key={tab}>
-          {tab === "inventory" && <InventoryPanel items={items} locations={locations} loans={loans} canManage={canManage} initialLocation={location} />}
+          {tab === "inventory" && (
+            <InventoryPanel items={items} locations={locations} loans={loans} departments={data.departments} canManage={canManage} initialLocation={location} />
+          )}
           {tab === "locations" && <LocationsPanel locations={locations} items={items} canManage={canManage} />}
-          {tab === "requests" && <RequestsPanel loans={loans} items={items} messages={messages} canManage={canManage} />}
-          {tab === "messages" && <MessagesPanel loans={loans} messages={messages} side="storage" focusId={loanId} />}
+          {tab === "requests" && <RequestsPanel loans={storeLoans} items={items} messages={storeMessages} canManage={canManage} />}
+          {tab === "log" && <LogPanel loans={loans} messages={messages} today={today} />}
+          {tab === "messages" && <MessagesPanel loans={storeLoans} messages={storeMessages} side="storage" focusId={loanId} />}
           {tab === "borrowers" && <BorrowersPanel borrowers={data.borrowers} canManage={canManage} error={data.borrowersError} />}
         </div>
       </div>

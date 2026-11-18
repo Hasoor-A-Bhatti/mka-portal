@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MapPin, MessageSquareText, Pencil, Search, Tag, PackagePlus, PackageCheck } from "lucide-react";
-import { addDays, dateRange, loanOverdue, todayISO, type Loan, type Message, type SearchResult } from "@/lib/storage";
+import { STORE_NAME, addDays, dateRange, lenderOf, loanOverdue, todayISO, type Loan, type Message, type SearchResult } from "@/lib/storage";
 import { cancelRequest, requestItem, updateRequest } from "@/app/(portal)/equipment-loans/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
 import { useCanEdit } from "@/components/edit-access";
@@ -90,7 +90,7 @@ export function FindPanel({
                     {r.site && r.location_name && !r.location_name.startsWith(r.site) && <span className="muted"> · {r.site}</span>}
                   </small>
                   <small>
-                    <Tag size={13} /> Owned by {r.owned_by ?? "MKA Storage"}
+                    <Tag size={13} /> Owned by {r.owner_department ?? STORE_NAME}
                   </small>
                 </div>
                 <div className="ln-result-side">
@@ -175,7 +175,7 @@ function RequestDialog({ item, from, to, department, phone, onClose }: { item: S
   const today = todayISO();
   const start = from || today;
   return (
-    <Sheet title={`Request ${item.item_name}`} subtitle={`${item.location_name ?? "MKA Storage"} · owned by ${item.owned_by ?? "MKA Storage"}`} onClose={onClose}>
+    <Sheet title={`Request ${item.item_name}`} subtitle={`${item.location_name ?? STORE_NAME} · owned by ${lenderOf(item)}`} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -187,7 +187,10 @@ function RequestDialog({ item, from, to, department, phone, onClose }: { item: S
       >
         <div className="sheet-body">
           <RequestFields max={item.quantity} from={start} to={to || (from ? from : addDays(today, 1))} quantity={1} department={department} phone={phone} purpose="" />
-          <p className="muted-note wide">MKA Storage will approve or reject it. You&apos;ll see the answer on your Pending and My loans tabs, with any message.</p>
+          <p className="muted-note wide">
+            {item.owner_department ? `The head of ${item.owner_department}` : STORE_NAME} will approve or reject it. You&apos;ll see the answer on your
+            Pending and My loans tabs straight away, with any message.
+          </p>
           <FormError error={error} />
         </div>
         <div className="sheet-foot">
@@ -225,7 +228,7 @@ export function PendingPanel({ loans, messages }: { loans: Loan[]; messages: Mes
   const list = loans.filter((l) => l.status === "Pending");
 
   return (
-    <Section title="Waiting for approval" count={list.length} note="Requests MKA Storage hasn't answered yet. You can change or cancel them until they do.">
+    <Section title="Waiting for approval" count={list.length} note="Requests that haven't been answered yet, by the department that owns the item or by MKA Store. You can change or cancel them until they are.">
       {list.length === 0 ? (
         <div className="empty">
           <strong>Nothing waiting</strong>
@@ -298,7 +301,7 @@ export function MyLoansPanel({ loans, messages }: { loans: Loan[]; messages: Mes
 
   return (
     <div className="stack">
-      <Section title="Approved: ready to collect" count={ready.length} note="Collect from the location shown. Check MKA Storage's message for any instructions.">
+      <Section title="Approved: ready to collect" count={ready.length} note="Collect from the location shown. Check the lender's message for any instructions.">
         {ready.length === 0 ? (
           <p className="muted-note">Nothing approved and waiting to be collected.</p>
         ) : (
@@ -310,7 +313,7 @@ export function MyLoansPanel({ loans, messages }: { loans: Loan[]; messages: Mes
                 </small>
                 {canEdit && (
                   <>
-                    <button type="button" className="btn btn-sm btn-ghost btn-danger" disabled={pending} onClick={() => window.confirm(`You no longer need ${l.item_name}? MKA Storage will be told.`) && run(() => cancelRequest(l.id))}>
+                    <button type="button" className="btn btn-sm btn-ghost btn-danger" disabled={pending} onClick={() => window.confirm(`You no longer need ${l.item_name}? ${lenderOf(l)} will be told.`) && run(() => cancelRequest(l.id))}>
                       No longer needed
                     </button>
                     <MessageLink loan={l} />
@@ -323,7 +326,7 @@ export function MyLoansPanel({ loans, messages }: { loans: Loan[]; messages: Mes
         <FormError error={error} />
       </Section>
 
-      <Section title="On loan to you" count={out.length} note="Please return each item by its date. Need it longer? Send MKA Storage a message.">
+      <Section title="On loan to you" count={out.length} note="Please return each item by its date. Need it longer? Send the lender a message.">
         {out.length === 0 ? (
           <p className="muted-note">You don&apos;t have anything on loan.</p>
         ) : (
