@@ -30,6 +30,7 @@ import { Plate } from "@/components/fleet/bits";
 import { VehicleButton } from "@/components/fleet/vehicle-dialog";
 import { VehicleGrid, type VehicleCard } from "@/components/fleet/vehicle-grid";
 import { EditAccess } from "@/components/edit-access";
+import { MilesStat, SpendStat, type MilesRow, type SpendRow } from "@/components/fleet/stat-breakdown";
 
 export const metadata: Metadata = { title: "MKA Fleet" };
 export const dynamic = "force-dynamic";
@@ -76,6 +77,7 @@ export default async function FleetPage() {
 
   const alerts: Alert[] = [];
   let fleetMiles = 0;
+  const milesRows: MilesRow[] = [];
   let docProblems = 0;
 
   const cards: VehicleCard[] = vehicles.map((v) => {
@@ -92,6 +94,7 @@ export default async function FleetPage() {
     const vLogs = logs.filter((l) => l.vehicle_id === v.id);
     const yearMiles = milesThisYear(vLogs);
     fleetMiles += yearMiles;
+    milesRows.push({ id: v.id, registration: v.registration, name: v.make_model ?? "Unnamed vehicle", miles: yearMiles, odometer: v.mileage, sold: v.status === "Sold" });
 
     const docs = latestDocs(files.filter((f) => f.vehicle_id === v.id));
     const docStates: Record<string, DocState> = {};
@@ -152,9 +155,17 @@ export default async function FleetPage() {
 
   const active = vehicles.filter((v) => v.status === "Active").length;
   const inFleet = vehicles.filter((v) => v.status !== "Sold").length;
-  const spent = tasks
-    .filter((t) => t.status === "Completed" && (t.completed_on ?? t.due_date ?? "").startsWith(year))
-    .reduce((n, t) => n + num(t.cost), 0);
+  const doneThisYear = tasks.filter((t) => t.status === "Completed" && (t.completed_on ?? t.due_date ?? "").startsWith(year));
+  const spent = doneThisYear.reduce((n, t) => n + num(t.cost), 0);
+  // Which vehicles had work done this year, and what it cost.
+  const spendRows: SpendRow[] = vehicles
+    .map((v) => {
+      const jobs = doneThisYear
+        .filter((t) => t.vehicle_id === v.id)
+        .map((t) => ({ description: t.description, date: t.completed_on ?? t.due_date ?? null, cost: num(t.cost) }));
+      return { id: v.id, registration: v.registration, name: v.make_model ?? "Unnamed vehicle", total: jobs.reduce((n, j) => n + j.cost, 0), jobs };
+    })
+    .filter((r) => r.jobs.length > 0);
   const overdue = tasks.filter((t) => taskStatus(t, today) === "Overdue").length;
   const keysOut = vehicles.filter((v) => v.status !== "Sold" && v.key_holder);
 
@@ -189,14 +200,8 @@ export default async function FleetPage() {
           </strong>
           <span>vehicles active</span>
         </div>
-        <div className="stat glass spotlight rise" style={vars({ "--i": "2" })}>
-          <strong>{miles(fleetMiles)}</strong>
-          <span>miles driven in {year}</span>
-        </div>
-        <div className="stat glass spotlight rise" style={vars({ "--i": "3" })}>
-          <strong>{money(spent)}</strong>
-          <span>maintenance spend {year}</span>
-        </div>
+        <MilesStat total={fleetMiles} year={year} rows={milesRows} i="2" />
+        <SpendStat total={spent} year={year} rows={spendRows} i="3" />
         <div className="stat glass spotlight rise" style={vars({ "--i": "4" })}>
           <strong style={{ color: overdue ? "var(--danger)" : undefined }}>{overdue}</strong>
           <span>maintenance overdue</span>

@@ -11196,3 +11196,136 @@ a.jd-cell:hover {
 .lg-route small {
   font-style: italic;
 }
+
+/* Fleet: breakdowns behind the Miles and Maintenance spend cards */
+.fl-stat-btn {
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fl-stat-btn span::after {
+  content: " ›";
+  color: var(--accent);
+}
+
+.fl-rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fl-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(59, 22, 140, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  color: inherit;
+  text-decoration: none;
+}
+
+.fl-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.fl-row-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fl-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-row-main small,
+.fl-row-figure small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.fl-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(59, 22, 140, 0.07);
+}
+
+.fl-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.fl-row-figure {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+
+.fl-row-figure b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-row-go {
+  color: var(--muted);
+}
+
+.fl-spend {
+  display: grid;
+  gap: 4px;
+}
+
+.fl-jobs {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 4px;
+  padding: 0 12px 0 24px;
+  list-style: none;
+}
+
+.fl-jobs li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(59, 22, 140, 0.1);
+  font-size: 13.5px;
+}
+
+.fl-jobs li:last-child {
+  border-bottom: 0;
+}
+
+.fl-jobs small {
+  color: var(--muted);
+}
+
+.fl-jobs b {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .fl-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .fl-row-go {
+    display: none;
+  }
+
+  .fl-jobs {
+    padding-left: 12px;
+  }
+}
