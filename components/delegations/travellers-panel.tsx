@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bus, Car, Check, ChevronsUpDown, Copy, PlaneLanding, PlaneTakeoff, Plus, Radio, Search } from "lucide-react";
 import {
-  addVehicles,
   fmtDay,
   hhmm,
+  recommendFleet,
   recommendVehicles,
+  TURNAROUND_MIN,
   vehicleParts,
   vehicleText,
   legUnknown,
@@ -133,38 +134,43 @@ function useFresh(travellers: Traveller[]): Set<string> {
 // ---------- Recommended vehicles ----------
 
 /**
- * What to hire, worked out flight by flight: everyone we're meeting off one
- * flight (or taking to one) travels together. Totals are per journey, so a
- * van booked for two different flights counts twice.
+ * The vans to hire for the stay (shared across every trip), sized for the
+ * busiest moment; small runs go by private car.
  */
 function VehiclesStat({ travellers }: { travellers: Traveller[] }) {
-  const legs = useMemo(
-    () =>
-      (["arrival", "departure"] as const).map((leg) => {
-        const runs = travelRuns(travellers, leg).filter((r) => r.needUs > 0);
-        return { leg, runs: runs.length, plan: addVehicles(runs.map((r) => recommendVehicles(r.needUs))) };
-      }),
-    [travellers],
-  );
+  const plan = useMemo(() => recommendFleet([...travelRuns(travellers, "arrival"), ...travelRuns(travellers, "departure")]), [travellers]);
+  const vans: VehiclePlan = { people: 0, cars: 0, van14: plan.van14, van9: plan.van9, seats: plan.van14 * 14 + plan.van9 * 9 };
+  const p = plan.peak;
 
   return (
-    <div className="stat glass tv-veh" title="Worked out per flight: a private car for 4 or fewer; otherwise the fewest 9- and 14-seater vans, with the fewest empty seats.">
+    <div
+      className="stat glass tv-veh"
+      title={`Vans are hired for the whole stay and reused for every trip. Flights within ${TURNAROUND_MIN / 60} hours of each other on the same day need vans at the same time; groups of 4 or fewer go by private car.`}
+    >
       <p className="tv-veh-title">
         <Bus size={15} /> Recommended transport vehicles
       </p>
-      {legs.map(({ leg, runs, plan }) => (
-        <div key={leg} className="tv-veh-row">
-          <span className="tv-veh-leg">
-            {leg === "arrival" ? <PlaneLanding size={14} /> : <PlaneTakeoff size={14} />} {leg === "arrival" ? "Arrivals" : "Departures"}
-          </span>
-          <VehicleChips plan={plan} />
-          {runs > 0 && (
-            <small className="tv-veh-runs">
-              {runs} flight{runs === 1 ? "" : "s"}
+      {plan.vanRuns > 0 ? (
+        <>
+          <div className="tv-veh-main">
+            <small>Hire for the stay</small>
+            <VehicleChips plan={vans} />
+          </div>
+          {p && (
+            <small className="tv-veh-note">
+              Busiest: {p.date ? shortDay(p.date) : "date not given"}
+              {p.from && `, ${p.from}${p.to && p.to !== p.from ? `–${p.to}` : ""}`} · {p.people} people on {p.runs} flight{p.runs === 1 ? "" : "s"}
             </small>
           )}
-        </div>
-      ))}
+        </>
+      ) : (
+        <div className="tv-veh-main">{plan.carRuns ? <VehicleChips plan={{ people: 0, cars: 1, van14: 0, van9: 0, seats: 4 }} /> : <em className="tv-veh-none">No flights to meet yet</em>}</div>
+      )}
+      {plan.carRuns > 0 && plan.vanRuns > 0 && (
+        <small className="tv-veh-note">
+          <Car size={13} /> Plus private cars for {plan.carRuns} small run{plan.carRuns === 1 ? "" : "s"} (4 or fewer)
+        </small>
+      )}
     </div>
   );
 }

@@ -11817,6 +11817,25 @@ a.jd-cell:hover {
   color: var(--accent);
 }
 
+.tv-veh-main {
+  display: grid;
+  gap: 4px;
+}
+
+.stat .tv-veh-main small,
+.stat .tv-veh-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.tv-veh-main .tv-veh-chip {
+  font-size: 15px;
+  padding: 4px 12px;
+}
+
 .tv-veh-row {
   display: grid;
   grid-template-columns: 108px minmax(0, 1fr) auto;

@@ -436,12 +436,92 @@ export function recommendVehicles(people: number): VehiclePlan {
   }
 }
 
-/** Plans added together, e.g. every arrival run of a delegation. */
-export function addVehicles(plans: VehiclePlan[]): VehiclePlan {
-  return plans.reduce(
-    (a, p) => ({ people: a.people + p.people, cars: a.cars + p.cars, van14: a.van14 + p.van14, van9: a.van9 + p.van9, seats: a.seats + p.seats }),
-    { people: 0, cars: 0, van14: 0, van9: 0, seats: 0 },
-  );
+/** Flights this close together (minutes, same day) need vehicles at the same time. */
+export const TURNAROUND_MIN = 120;
+
+/** The vans to hire for the whole stay, and the moment that decides it. */
+export type FleetPlan = {
+  van14: number;
+  van9: number;
+  /** Runs small enough for a private car (4 or fewer). */
+  carRuns: number;
+  /** Runs that need a van. */
+  vanRuns: number;
+  /** The busiest window: the most people needing vans at once. */
+  peak: { date: string | null; from: string | null; to: string | null; people: number; runs: number } | null;
+};
+
+const minutes = (t: string | null) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : null);
+
+/** Every way to seat n people in vans without a wasted van: [14-seaters, 9-seaters]. */
+function vanOptions(n: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let a = 0; a <= Math.ceil(n / 14); a++) out.push([a, Math.max(0, Math.ceil((n - 14 * a) / 9))]);
+  return out;
+}
+
+/** Can a fleet of `a14` + `b9` vans cover these runs at the same time (each run in its own vans)? */
+function fleetCovers(runs: number[], a14: number, b9: number): boolean {
+  let states = new Set<string>(["0,0"]);
+  for (const n of runs) {
+    const next = new Set<string>();
+    for (const st of states) {
+      const [ua, ub] = st.split(",").map(Number);
+      for (const [a, b] of vanOptions(n)) if (ua + a <= a14 && ub + b <= b9) next.add(`${ua + a},${ub + b}`);
+    }
+    if (!next.size) return false;
+    states = next;
+  }
+  return true;
+}
+
+/**
+ * Vans hired for the length of the stay, shared across every pickup and
+ * drop-off (one van can do several trips, on the same or different days).
+ *
+ * Runs of 4 or fewer go by private car. For the rest, flights within
+ * TURNAROUND_MIN of each other on the same day need vans at the same time; the
+ * fleet is the fewest vans that can cover every such window, and among those
+ * the cheapest mix (as many 9-seaters as will do, since 14-seaters cost more).
+ * A run with no time given is treated as needing its vans on its own.
+ */
+export function recommendFleet(runs: TravelRun[]): FleetPlan {
+  const vanRuns = runs.filter((r) => r.needUs > CAR_SEATS);
+  const carRuns = runs.filter((r) => r.needUs > 0 && r.needUs <= CAR_SEATS).length;
+  if (!vanRuns.length) return { van14: 0, van9: 0, carRuns, vanRuns: 0, peak: null };
+
+  // Each van is out for TURNAROUND_MIN from its flight. At each flight's time, the
+  // vans still out are those for flights in the TURNAROUND_MIN before it: that's
+  // every moment the fleet has to cover (flights 3 hours apart can share a van).
+  const windows = vanRuns.map((r) => {
+    const t = minutes(r.from);
+    if (t == null) return [r];
+    return vanRuns.filter((o) => {
+      const to = minutes(o.from);
+      return o.date === r.date && to != null && to <= t && t - to < TURNAROUND_MIN;
+    });
+  });
+  const sizes = windows.map((w) => w.map((r) => r.needUs));
+
+  let fleet: [number, number] = [0, 0];
+  search: for (let vans = 1; vans <= 200; vans++) {
+    for (let b9 = vans; b9 >= 0; b9--) {
+      if (sizes.every((w) => fleetCovers(w, vans - b9, b9))) {
+        fleet = [vans - b9, b9];
+        break search;
+      }
+    }
+  }
+
+  const busiest = windows.reduce((best, w) => (w.reduce((n, r) => n + r.needUs, 0) > best.reduce((n, r) => n + r.needUs, 0) ? w : best), windows[0]);
+  const times = busiest.flatMap((r) => [r.from, r.to]).filter(Boolean).sort() as string[];
+  return {
+    van14: fleet[0],
+    van9: fleet[1],
+    carRuns,
+    vanRuns: vanRuns.length,
+    peak: { date: busiest[0].date, from: times[0] ?? null, to: times[times.length - 1] ?? null, people: busiest.reduce((n, r) => n + r.needUs, 0), runs: busiest.length },
+  };
 }
 
 /** "1 × 14-seater + 1 × 9-seater", "Private car", "2 private cars". */

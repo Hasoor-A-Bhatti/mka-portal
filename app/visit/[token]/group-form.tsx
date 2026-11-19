@@ -206,6 +206,8 @@ export function GroupEditor({
       // Only what the file gives: blanks in the file never wipe out what's already here.
       const patch: Partial<GroupRow> = {};
       for (const k of TRAVEL_KEYS) if (p[k]) patch[k] = p[k];
+      // Yes/No answers from the file (pickup, drop-off, accommodation), where it gives them.
+      for (const k of ["needs_pickup", "needs_dropoff", "needs_accommodation"] as const) if (p[k] !== undefined) patch[k] = p[k];
       const at = index.get(nameKey(p.full_name));
       if (at) {
         next = next.map((r) => (r.key === at ? { ...r, ...patch } : r));
@@ -521,6 +523,7 @@ function ImportReview({
       ["return times", c("departure_time")],
       ["return flights", c("departure_flight")],
       ["airports", c("arrival_place") + c("departure_place")],
+      ["pickup and drop-off answers", review.people.filter((p) => p.needs_pickup !== undefined || p.needs_dropoff !== undefined).length],
     ].filter(([, n]) => Number(n) > 0) as [string, number][];
   }, [review.people]);
   const odd = useMemo(() => oddDates(review.people), [review.people]);

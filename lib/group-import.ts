@@ -19,6 +19,10 @@
 
 export type ImportedPerson = {
   full_name: string;
+  /** Only when the file answers it (a Yes/No column); otherwise left as it is. */
+  needs_pickup?: boolean;
+  needs_dropoff?: boolean;
+  needs_accommodation?: boolean;
   arrival_date: string;
   arrival_time: string;
   arrival_flight: string;
@@ -116,7 +120,14 @@ async function spreadsheetSheets(file: File, ext: string): Promise<Sheet[]> {
         const cell = ws[XLSX.utils.encode_cell({ r, c })];
         if (!cell) continue;
         let text = "";
-        if (cell.t === "n" && typeof cell.v === "number" && cell.z && XLSX.SSF.is_date(String(cell.z))) {
+        const fmt = String(cell.z ?? "");
+        // A date cell formatted month-and-year only ("mmm-yy") is almost always a day
+        // Excel misread: "Nov-26" typed for 26 November is saved as 1 November 2026.
+        // No one arrives on "a month", so read it as it's shown on screen instead.
+        const noDay = !/d/i.test(fmt.replace(/"[^"]*"|\[[^\]]*\]|\\./g, ""));
+        if (cell.t === "n" && typeof cell.v === "number" && fmt && XLSX.SSF.is_date(fmt) && noDay && cell.v >= 1 && cell.w) {
+          text = String(cell.w);
+        } else if (cell.t === "n" && typeof cell.v === "number" && fmt && XLSX.SSF.is_date(fmt)) {
           // A real Excel date or time: read it without any time zone shifting.
           const d = XLSX.SSF.parse_date_code(cell.v);
           const day = cell.v >= 1 ? `${d.y}-${pad(d.m)}-${pad(d.d)}` : "";
@@ -217,21 +228,34 @@ function rejoinDays(s: string): string {
 
 // ---------- Finding the header ----------
 
-type Kind = "name" | "first" | "last" | "date" | "time" | "datetime" | "flight" | "place" | "mixed" | "skip";
+type Kind = "name" | "first" | "last" | "date" | "time" | "datetime" | "flight" | "place" | "mixed" | "pickup" | "dropoff" | "stay" | "skip";
 type Column = { x0: number; x1: number; text: string; kind: Kind | null; leg: Leg | null };
 
 const has = (s: string, re: RegExp) => re.test(s);
 
+const UK = "(uk|u k|united kingdom|london|england|britain|heathrow|gatwick|lhr|lgw|stansted|manchester)";
+
 function classify(label: string): { kind: Kind | null; leg: Leg | null } {
   const s = ` ${label.toLowerCase().replace(/[^a-z0-9#]+/g, " ").trim()} `;
-  const leg: Leg | null = has(s, / (arr|arrival|arrivals|arriving|arrive|arrives|inbound|incoming|landing|lands|eta|sta) /) || has(s, / to (the )?(uk|london|england|britain) /)
+  const legWords = has(s, / (arr|arrival|arrivals|arriving|arrive|arrives|inbound|incoming|landing|lands|eta|sta) /)
     ? "arrival"
     : has(s, / (dep|departure|departures|departing|depart|departs|return|returning|outbound|outgoing|leaving|leave|leaves|etd|std|back|homeward) /)
       ? "departure"
       : null;
+  // "Flight (from UK)" is the way home; "Flight # (from CA or USA)" or "… to UK" is the way in.
+  const fromUk = new RegExp(` from (the )?${UK} `).test(s);
+  const toUk = new RegExp(` (to|into) (the )?${UK} `).test(s);
+  const fromElsewhere = !fromUk && / from /.test(s);
+  const leg: Leg | null = legWords ?? (fromUk ? "departure" : toUk ? "arrival" : null);
 
-  // Columns we never want, even if they mention a date or a name.
-  if (has(s, / (birth|dob|passport|visa|expiry|expiration|issued|issue|age|gender|sex|email|mail|phone|mobile|tel|telephone|whatsapp|contact|emergency|address|father|mother|guardian|spouse|nationality|seat|pnr|booking|ticket|room|hotel|jamaat|majlis|aims|id) /)) {
+  // Yes/No columns for what each person needs from us.
+  if (has(s, / (pick ?up|pickups|collection|meet and greet) /)) return { kind: "pickup", leg: null };
+  if (has(s, / (drop ?off|dropoff|drop offs) /)) return { kind: "dropoff", leg: null };
+  if (has(s, / (accomm?odation|accom|lodging|room needed|hotel needed|stay needed) /)) return { kind: "stay", leg: null };
+
+  // Columns we never want, even if they mention a date, a journey or a name:
+  // personal details, and the team's own labels (groups, courses, codes, statuses).
+  if (has(s, / (birth|dob|passport|visa|expiry|expiration|issued|issue|age|gender|sex|email|mail|phone|mobile|tel|telephone|whatsapp|contact|emergency|address|father|mother|guardian|spouse|nationality|citizen|citizenship|status|seat|pnr|booking|ticket|room|hotel|jamaat|majlis|aims|id|group|groups|course|class|code|allergies|allergy|health|heath|medical|notes|remarks|comments) /)) {
     return { kind: "skip", leg };
   }
   const notAName = has(s, / (flight|airline|airport|carrier|terminal|city|country|station) /);
@@ -242,14 +266,19 @@ function classify(label: string): { kind: Kind | null; leg: Leg | null } {
   }
   const dateWord = has(s, / (date|dates|day|dated|dt) /);
   const timeWord = has(s, / (time|times|hrs|hour|eta|etd|sta|std) /);
-  if (dateWord && timeWord) return { kind: "datetime", leg };
-  if (dateWord) return { kind: "date", leg };
-  if (timeWord) return { kind: "time", leg };
-  if (has(s, / (flight|flights|flt|flight no|airline|carrier|train|coach|bus|ferry|transport) /)) return { kind: "flight", leg };
+  const travelLeg = leg ?? (fromElsewhere ? "arrival" : null);
+  if (dateWord && timeWord) return { kind: "datetime", leg: travelLeg };
+  if (dateWord) return { kind: "date", leg: travelLeg };
+  if (timeWord) return { kind: "time", leg: travelLeg };
+  if (has(s, / (flight|flights|flt|flight no|airline|carrier|train|coach|bus|ferry) /)) return { kind: "flight", leg: travelLeg };
   if (has(s, / (airport|airports|terminal|port|station|arriving at|leaving from|landing at|arrival point|departure point|point of entry) /)) {
     return { kind: "place", leg };
   }
-  if (leg) return { kind: "mixed", leg };
+  // A heading that is only the journey ("Arrival", "Return details") holds a bit of everything.
+  // Anything else that merely mentions it ("Arrival-Groups", "Traveling From") is left alone.
+  if (legWords && !s.replace(/ (arr|arrival|arrivals|arriving|dep|departure|departures|departing|return|returning|inbound|outbound|details|detail|info|information|journey|travel|plans?|and|to|uk|the|of) /g, " ").replace(/ (arr|arrival|arrivals|arriving|dep|departure|departures|departing|return|returning|inbound|outbound|details|detail|info|information|journey|travel|plans?|and|to|uk|the|of) /g, " ").trim()) {
+    return { kind: "mixed", leg: legWords };
+  }
   return { kind: null, leg: null };
 }
 
@@ -419,7 +448,7 @@ function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: bo
       if (!v) continue;
       const got: Partial<Record<Part, string>> = c.kind === "time" ? { time: parseTime(v) } : c.kind === "flight" ? { flight: parseFlight(v) } : c.kind === "place" ? { place: parsePlace(v) } : pull(v, when);
       for (const part of PARTS[c.kind]) {
-        const key = `${c.leg}_${part}` as keyof ImportedPerson;
+        const key = `${c.leg}_${part}` as const;
         const value = got[part];
         if (value && !p[key]) p[key] = value;
       }
@@ -427,6 +456,11 @@ function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: bo
       if (c.kind === "date" && got.time) spare[c.leg] ??= got.time;
     }
     for (const leg of ["arrival", "departure"] as const) if (spare[leg] && !p[`${leg}_time`]) p[`${leg}_time`] = spare[leg];
+    for (const [kind, key] of [["pickup", "needs_pickup"], ["dropoff", "needs_dropoff"], ["stay", "needs_accommodation"]] as const) {
+      const v = text(kind);
+      const yes = yesNo(v);
+      if (yes !== undefined) p[key] = yes;
+    }
     people.push(p);
   }
   return people;
@@ -467,7 +501,7 @@ function dedupe(people: ImportedPerson[]): ImportedPerson[] {
       byKey.set(k, { ...p });
       continue;
     }
-    for (const key of Object.keys(p) as (keyof ImportedPerson)[]) if (!seen[key] && p[key]) seen[key] = p[key];
+    for (const key of Object.keys(p) as (keyof ImportedPerson)[]) if (seen[key] === undefined || seen[key] === "") (seen as Record<string, unknown>)[key] = p[key];
   }
   return [...byKey.values()];
 }
@@ -480,6 +514,7 @@ const clean = (s: string) => s.replace(/[ \s]+/g, " ").trim();
 function tidyName(raw: string): string {
   let s = clean(raw)
     .replace(/^[\s#*•\-–.]*\d{1,4}\s*[.)\]:\-–]?\s+/, "") // a list number in front: "12. Ahmad Khan"
+    .replace(/[\s,;:/–\-]*\+?\(?\d[\d\s().\-]{6,}\d\)?\s*$/, "") // a phone number after the name
     .replace(/[|,;:–\-]+$/, "")
     .trim();
   // Airline style: "KHAN/AHMAD MR" → "Ahmad Khan".
@@ -544,7 +579,7 @@ function findDates(text: string, when: When): Hit[] {
     withYear(m[3], MONTHS.indexOf(m[2].toLowerCase()) + 1, +m[1], when),
   );
   // November 26th, Nov 26, 2026
-  scan(new RegExp(`(?<![a-z])${MON}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*'?((?:19|20)\\d{2}))?(?!\\d)`, "gi"), (m) =>
+  scan(new RegExp(`(?<![a-z])${MON}[\\s\\-]*(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*'?((?:19|20)\\d{2}))?(?!\\d)`, "gi"), (m) =>
     withYear(m[3], MONTHS.indexOf(m[1].toLowerCase()) + 1, +m[2], when),
   );
   return nonOverlapping(hits);
@@ -615,7 +650,7 @@ const AIRPORTS: Record<string, string> = {
   "st. pancras": "St Pancras",
 };
 const PLACE_RE =
-  /\b(heathrow|gatwick|stansted|luton|manchester|birmingham|london city|edinburgh|glasgow|bristol|st\.? pancras|lhr|lgw|stn|ltn|man|bhx|lcy|edi|gla|brs)\b(?:\s*(?:airport|intl|international)?\s*[,\-–(]?\s*(?:(?:terminal|term\.?|t)\s*([1-5]|north|south|n|s)|(north|south))\b\)?)?/gi;
+  /\b(heathrow|gatwick|stansted|luton|manchester|birmingham|london city|edinburgh|glasgow|bristol|st\.? pancras|lhr|lgw|stn|ltn|man|bhx|lcy|edi|gla|brs)\b(?:\s*(?:airport|intl|international)?\s*[,\-–(]?\s*(?:(?:terminal|term\.?|t)\s*([1-5]|north|south|n|s)|(north|south)|(?<=\s)([1-5]))\b\)?)?/gi;
 
 function findPlaces(text: string): Hit[] {
   const hits: Hit[] = [];
@@ -623,7 +658,7 @@ function findPlaces(text: string): Hit[] {
     const word = m[1];
     // Three-letter codes only when written as codes (LHR, not "man").
     if (word.length === 3 && word !== word.toUpperCase()) continue;
-    const t = (m[2] ?? m[3])?.toLowerCase();
+    const t = (m[2] ?? m[3] ?? m[4])?.toLowerCase();
     const term = !t ? "" : t === "n" || t === "north" ? " North" : t === "s" || t === "south" ? " South" : ` T${t}`;
     hits.push({ at: m.index ?? 0, len: m[0].length, value: `${AIRPORTS[word.toLowerCase().replace(/\s+/g, " ")] ?? word}${term}` });
   }
@@ -666,6 +701,15 @@ function pull(text: string, when: When) {
   };
 }
 
+/** "Yes", "Y", "Required", "✓" → true; "No", "N", "Not needed", "N/A" → false; anything else → not answered. */
+function yesNo(v: string): boolean | undefined {
+  const t = v.trim().toLowerCase();
+  if (!t) return undefined;
+  if (/^(no|n|none|not needed|not required|nope|false|0|x|✗|n\/?a|self|own|personal)\b/.test(t)) return false;
+  if (/^(yes|y|yeah|yep|required|needed|please|true|1|✓|✔)\b/.test(t)) return true;
+  return undefined;
+}
+
 function parseTime(v: string): string {
   return findTimes(v, true)[0]?.value ?? "";
 }
@@ -674,7 +718,7 @@ function parseFlight(v: string): string {
   const f = findFlights(v.toUpperCase())[0]?.value;
   if (f) return f;
   // Not a flight number (a train or coach, say): keep what they wrote.
-  return /^(n\/?a|none|tbc|tba|-+|\?)$/i.test(v.trim()) ? "" : clean(v).slice(0, 40);
+  return /\d/.test(v) ? clean(v).slice(0, 40) : "";
 }
 
 function parsePlace(v: string): string {
