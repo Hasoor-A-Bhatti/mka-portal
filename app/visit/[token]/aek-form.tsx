@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange, Check, CheckCircle2, FileText, PlaneLanding, PlaneTakeoff, Upload, UserRound, Utensils } from "lucide-react";
+import { CalendarRange, Check, CheckCircle2, FileText, Upload, UserRound, Utensils } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ACCEPTED_FILES, MAX_FILE_BYTES } from "@/lib/fleet";
 import {
@@ -75,14 +75,25 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
     notes: u?.notes ?? "",
   };
 
-  // The days of the stay follow the dates in the form, so the Activities and
-  // Food tables update as soon as the AeK changes them.
-  const [dates, setDates] = useState({ arrival_date: v.arrival_date, departure_date: v.departure_date });
-  const days = stayDays({ arrival_date: dates.arrival_date || null, departure_date: dates.departure_date || null });
-
   const [activities, setActivities] = useState<AekActivities>(u?.activities ?? {});
   // The group: everyone here goes onto the delegation's Travellers list when the form is sent.
   const [group, setGroup] = useState<GroupRow[]>(() => travellers.map(toGroupRow));
+
+  // Groups come on several flights, so there's no single arrival to ask for: the
+  // stay runs from the first person in to the last person out, straight from the
+  // list. The Activities and Food tables follow it as the list changes. Before
+  // anyone has dates, what they sent before (or the team's dates) is used.
+  const span = useMemo(() => {
+    const named = group.filter((r) => r.full_name.trim());
+    const first = named.filter((r) => r.arrival_date).sort((a, b) => `${a.arrival_date}${a.arrival_time}`.localeCompare(`${b.arrival_date}${b.arrival_time}`))[0];
+    const last = named.filter((r) => r.departure_date).sort((a, b) => `${b.departure_date}${b.departure_time}`.localeCompare(`${a.departure_date}${a.departure_time}`))[0];
+    return { first, last };
+  }, [group]);
+  const dates = {
+    arrival_date: span.first?.arrival_date || v.arrival_date,
+    departure_date: span.last?.departure_date || v.departure_date,
+  };
+  const days = stayDays({ arrival_date: dates.arrival_date || null, departure_date: dates.departure_date || null });
   const [removed, setRemoved] = useState<string[]>([]);
   const [meals, setMeals] = useState<MealRequests>(u?.meal_requests ?? {});
   // Days they haven't answered yet start with every meal ticked.
@@ -90,23 +101,10 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
 
   const touched = () => setSaved(false);
 
-  // After a list is dropped in: fill the group's own dates and size above, where they're still blank.
+  // After a list is dropped in: fill in the group size above, if it's still blank.
   const fillFromGroup = (rows: GroupRow[]) => {
-    const form = formRef.current;
-    if (!form) return;
-    const fill = (name: string, value: string | undefined) => {
-      const el = form.elements.namedItem(name) as HTMLInputElement | null;
-      if (!el || el.value || !value) return false;
-      el.value = value;
-      return true;
-    };
-    const arr = rows.map((r) => r.arrival_date).filter(Boolean).sort();
-    const dep = rows.map((r) => r.departure_date).filter(Boolean).sort();
-    const next = { ...dates };
-    if (fill("arrival_date", arr[0])) next.arrival_date = arr[0];
-    if (fill("departure_date", dep[dep.length - 1])) next.departure_date = dep[dep.length - 1];
-    setDates(next);
-    fill("members", String(rows.filter((r) => r.full_name.trim()).length));
+    const el = formRef.current?.elements.namedItem("members") as HTMLInputElement | null;
+    if (el && !el.value) el.value = String(rows.filter((r) => r.full_name.trim()).length);
   };
 
   const upload = async (files: File[]) => {
@@ -146,6 +144,18 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
         onSubmit={(e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
+          // The group's journey for the team's Info tab: the first flight in and the
+          // last flight out, from the list (or what was sent before, if the list has none).
+          const a = span.first;
+          const z = span.last;
+          fd.set("arrival_date", dates.arrival_date);
+          fd.set("arrival_time", a ? a.arrival_time : v.arrival_time);
+          fd.set("arrival_travel", a ? a.arrival_flight : v.arrival_travel);
+          fd.set("arrival_place", a ? a.arrival_place : v.arrival_place);
+          fd.set("departure_date", dates.departure_date);
+          fd.set("departure_time", z ? z.departure_time : v.departure_time);
+          fd.set("departure_travel", z ? z.departure_flight : v.departure_travel);
+          fd.set("departure_place", z ? z.departure_place : v.departure_place);
           // Only the days of the stay as it stands now.
           fd.set("activities", JSON.stringify(Object.fromEntries(days.filter((day) => activities[day]).map((day) => [day, activities[day]]))));
           // The old khuddam list is kept as it was; people now go to the Travellers list.
@@ -170,66 +180,6 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
         }}
         onChange={() => setSaved(false)}
       >
-        <fieldset className="visit-group">
-          <legend>
-            <PlaneLanding size={18} /> Arrival in the UK
-          </legend>
-          <div className="visit-grid">
-            <Field label="Date" htmlFor="a-date">
-              <input
-                id="a-date"
-                name="arrival_date"
-                type="date"
-                className="input"
-                defaultValue={v.arrival_date}
-                onChange={(e) => setDates((x) => ({ ...x, arrival_date: e.target.value }))}
-              />
-            </Field>
-            <Field label="Time (UK time)" htmlFor="a-time">
-              <input id="a-time" name="arrival_time" type="time" className="input" defaultValue={v.arrival_time} />
-            </Field>
-            <Field label="Flight, train or coach number" htmlFor="a-travel">
-              <input
-                id="a-travel"
-                name="arrival_travel"
-                className="input"
-                maxLength={120}
-                placeholder="e.g. LH 920"
-                defaultValue={v.arrival_travel}
-              />
-            </Field>
-            <Field label="Arriving at" htmlFor="a-place">
-              <input id="a-place" name="arrival_place" className="input" maxLength={120} placeholder="e.g. Heathrow Terminal 2" defaultValue={v.arrival_place} />
-            </Field>
-          </div>
-        </fieldset>
-
-        <fieldset className="visit-group">
-          <legend>
-            <PlaneTakeoff size={18} /> Departure from the UK
-          </legend>
-          <div className="visit-grid">
-            <Field label="Date" htmlFor="d-date">
-              <input
-                id="d-date"
-                name="departure_date"
-                type="date"
-                className="input"
-                defaultValue={v.departure_date}
-                onChange={(e) => setDates((x) => ({ ...x, departure_date: e.target.value }))}
-              />
-            </Field>
-            <Field label="Time (UK time)" htmlFor="d-time">
-              <input id="d-time" name="departure_time" type="time" className="input" defaultValue={v.departure_time} />
-            </Field>
-            <Field label="Flight, train or coach number" htmlFor="d-travel">
-              <input id="d-travel" name="departure_travel" className="input" maxLength={120} placeholder="e.g. LH 923" defaultValue={v.departure_travel} />
-            </Field>
-            <Field label="Leaving from" htmlFor="d-place">
-              <input id="d-place" name="departure_place" className="input" maxLength={120} placeholder="e.g. Heathrow Terminal 2" defaultValue={v.departure_place} />
-            </Field>
-          </div>
-        </fieldset>
 
         <fieldset className="visit-group">
           <legend>
@@ -261,12 +211,35 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
           </Field>
         </fieldset>
 
+        {groupReady && (
+          <GroupEditor
+            rows={group}
+            year={Number((dates.arrival_date || new Date().toISOString()).slice(0, 4))}
+            onImported={fillFromGroup}
+            onChange={(rows) => {
+              setGroup(rows);
+              touched();
+            }}
+            onRemove={(row) => {
+              if (row.id) setRemoved((r) => [...r, row.id!]);
+              setGroup((rows) => rows.filter((x) => x.key !== row.key));
+              touched();
+            }}
+          />
+        )}
+
         <fieldset className="visit-group">
           <legend>
             <CalendarRange size={18} /> Activities
             <span className="optional-tag">Optional</span>
           </legend>
           <p className="visit-help">What are you planning to do each day? A few words is plenty, e.g. &ldquo;Visit Baitul Futuh&rdquo; or &ldquo;Free time&rdquo;.</p>
+          {days.length > 0 && (span.first || span.last) && (
+            <p className="muted-note visit-span">
+              From {span.first ? `${fmtDay(dates.arrival_date, { weekday: "short", day: "numeric", month: "short" })} (first arrival)` : fmtDay(dates.arrival_date, { weekday: "short", day: "numeric", month: "short" })} to{" "}
+              {span.last ? `${fmtDay(dates.departure_date, { weekday: "short", day: "numeric", month: "short" })} (last return)` : fmtDay(dates.departure_date, { weekday: "short", day: "numeric", month: "short" })}, from your group&apos;s list.
+            </p>
+          )}
           {days.length === 0 ? (
             <NeedDates />
           ) : (
@@ -303,22 +276,6 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
           )}
         </fieldset>
 
-        {groupReady && (
-          <GroupEditor
-            rows={group}
-            year={Number((dates.arrival_date || new Date().toISOString()).slice(0, 4))}
-            onImported={fillFromGroup}
-            onChange={(rows) => {
-              setGroup(rows);
-              touched();
-            }}
-            onRemove={(row) => {
-              if (row.id) setRemoved((r) => [...r, row.id!]);
-              setGroup((rows) => rows.filter((x) => x.key !== row.key));
-              touched();
-            }}
-          />
-        )}
 
         <fieldset className="visit-group">
           <legend>
@@ -449,7 +406,7 @@ function DayLabel({ day, index, count }: { day: string; index: number; count: nu
 }
 
 function NeedDates() {
-  return <p className="muted-note visit-need-dates">Add your arrival and departure dates above, and each day of your stay will appear here.</p>;
+  return <p className="muted-note visit-need-dates">Add arrival and return dates for your group above, and each day of your stay will appear here.</p>;
 }
 
 function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }) {
