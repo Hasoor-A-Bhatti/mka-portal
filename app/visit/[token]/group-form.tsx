@@ -94,6 +94,25 @@ function legText(r: Pick<GroupPerson, (typeof TRAVEL_KEYS)[number]>, leg: Leg): 
   return bits.length ? bits.join(" · ") : null;
 }
 
+/**
+ * Dates far from the rest of the group (more than 4 days from the middle date),
+ * as "<key>:arrival" / "<key>:departure". One person landing on the 6th when
+ * everyone else lands on the 26th is usually a typo in the list, so the AeK is
+ * asked to check it before it goes on.
+ */
+function oddDates(people: (ImportedPerson & { key: string })[]): Set<string> {
+  const out = new Set<string>();
+  const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
+  for (const leg of ["arrival", "departure"] as const) {
+    const dated = people.filter((p) => p[`${leg}_date`]);
+    if (dated.length < 3) continue;
+    const sorted = dated.map((p) => day(p[`${leg}_date`])).sort((a, b) => a - b);
+    const middle = sorted[Math.floor(sorted.length / 2)];
+    for (const p of dated) if (Math.abs(day(p[`${leg}_date`]) - middle) > 4) out.add(`${p.key}:${leg}`);
+  }
+  return out;
+}
+
 type Review = {
   fileName: string;
   people: (ImportedPerson & { key: string; on: boolean; match: string | null })[];
@@ -362,7 +381,7 @@ export function GroupEditor({
                 return (
                   <li key={r.key} data-key={r.key} className={`grp-item ${isOpen ? "is-open" : ""}`}>
                     <button type="button" className="grp-line" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.key)}>
-                      <span className="grp-ref">{r.ref ?? n}</span>
+                      <span className="grp-ref">{n}</span>
                       <span className="grp-who">{r.full_name || <em>New person</em>}</span>
                       <span className={`grp-sum ${legText(r, "arrival") ? "" : "is-blank"}`}>
                         <PlaneLanding size={14} aria-label="Arrives" /> {legText(r, "arrival") ?? "Not given"}
@@ -504,6 +523,7 @@ function ImportReview({
       ["airports", c("arrival_place") + c("departure_place")],
     ].filter(([, n]) => Number(n) > 0) as [string, number][];
   }, [review.people]);
+  const odd = useMemo(() => oddDates(review.people), [review.people]);
   const toggle = (key: string, on: boolean) => onChange({ ...review, people: review.people.map((p) => (p.key === key ? { ...p, on } : p)) });
   const all = chosen.length === review.people.length;
 
@@ -521,6 +541,12 @@ function ImportReview({
             {found.length ? `Also read: ${found.map(([label]) => label).join(", ")}.` : "Only names were found; you can add travel details after."} Untick
             anyone who shouldn&apos;t be on the list.
           </small>
+          {odd.size > 0 && (
+            <small className="grp-review-warn">
+              <AlertCircle size={14} /> {odd.size} {odd.size === 1 ? "date looks" : "dates look"} different from the rest of the group. Please
+              check {odd.size === 1 ? "it" : "them"} against your list.
+            </small>
+          )}
         </div>
       </header>
 
@@ -554,10 +580,12 @@ function ImportReview({
                 </td>
                 <td className={legText(p, "arrival") ? "" : "is-blank"}>
                   {legText(p, "arrival") ?? "—"}
+                  {odd.has(`${p.key}:arrival`) && <span className="grp-flag is-bad">Check date</span>}
                   {p.arrival_place && <small>{p.arrival_place}</small>}
                 </td>
                 <td className={legText(p, "departure") ? "" : "is-blank"}>
                   {legText(p, "departure") ?? "—"}
+                  {odd.has(`${p.key}:departure`) && <span className="grp-flag is-bad">Check date</span>}
                   {p.departure_place && <small>{p.departure_place}</small>}
                 </td>
               </tr>

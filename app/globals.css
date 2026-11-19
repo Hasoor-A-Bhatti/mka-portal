@@ -10900,6 +10900,19 @@ a.jd-cell:hover {
   font-size: 12.5px;
 }
 
+.grp-review-head small.grp-review-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.grp-review-table td .grp-flag {
+  margin-left: 6px;
+}
+
 .grp-review-table {
   max-height: 340px;
   overflow: auto;

@@ -12,7 +12,9 @@ import {
   legUnknown,
   runTime,
   shortDay,
+  sortTravellers,
   telHref,
+  travellerNumbers,
   travelRuns,
   type Traveller,
   type TravelLeg,
@@ -33,6 +35,8 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
   const [editing, setEditing] = useState<{ t: Traveller | null } | null>(null);
 
   const fresh = useFresh(travellers);
+  // Numbers 1…N, worked out here (never the numbers from an imported list).
+  const numbers = useMemo(() => travellerNumbers(travellers), [travellers]);
   const pickups = travellers.filter((t) => t.needs_pickup).length;
   const dropoffs = travellers.filter((t) => t.needs_dropoff).length;
   const open = (t: Traveller | null) => setEditing({ t });
@@ -94,13 +98,13 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
             PDF), and everyone appears here as soon as they send it.
           </div>
         ) : view === "everyone" ? (
-          <EveryoneTable travellers={travellers} onOpen={open} fresh={fresh} />
+          <EveryoneTable travellers={travellers} onOpen={open} fresh={fresh} numbers={numbers} />
         ) : (
-          <RunsView key={view} leg={view === "arrivals" ? "arrival" : "departure"} travellers={travellers} onOpen={open} fresh={fresh} />
+          <RunsView key={view} leg={view === "arrivals" ? "arrival" : "departure"} travellers={travellers} onOpen={open} fresh={fresh} numbers={numbers} />
         )}
       </section>
 
-      {editing && <TravellerDialog delegationId={delegationId} t={editing.t} canManage={canManage} onClose={() => setEditing(null)} />}
+      {editing && <TravellerDialog delegationId={delegationId} t={editing.t} number={editing.t ? numbers.get(editing.t.id) : undefined} canManage={canManage} onClose={() => setEditing(null)} />}
     </>
   );
 }
@@ -181,7 +185,7 @@ function VehicleChips({ plan }: { plan: VehiclePlan }) {
 
 // ---------- Arrivals / departures ----------
 
-function RunsView({ leg, travellers, onOpen, fresh }: { leg: TravelLeg; travellers: Traveller[]; onOpen: (t: Traveller) => void; fresh: Set<string> }) {
+function RunsView({ leg, travellers, onOpen, fresh, numbers }: { leg: TravelLeg; travellers: Traveller[]; onOpen: (t: Traveller) => void; fresh: Set<string>; numbers: Map<string, number> }) {
   const all = useMemo(() => travelRuns(travellers, leg), [travellers, leg]);
   // Arrivals: anyone without arrival details. Departures: only people who need a drop-off.
   const unknown = travellers.filter((t) => legUnknown(t, leg) && (leg === "arrival" || t.needs_dropoff));
@@ -228,7 +232,7 @@ function RunsView({ leg, travellers, onOpen, fresh }: { leg: TravelLeg; travelle
           </h3>
           <ul className="tv-run-list">
             {list.map((r) => (
-              <RunCard key={`${r.key}-${allOpen}`} run={r} icon={<Icon size={16} />} need={need} startOpen={allOpen ?? r.people.length <= 3} onOpen={onOpen} fresh={fresh} />
+              <RunCard key={`${r.key}-${allOpen}`} run={r} icon={<Icon size={16} />} need={need} startOpen={allOpen ?? r.people.length <= 3} onOpen={onOpen} fresh={fresh} numbers={numbers} />
             ))}
           </ul>
         </section>
@@ -249,7 +253,7 @@ function RunsView({ leg, travellers, onOpen, fresh }: { leg: TravelLeg; travelle
             {unknown.map((t) => (
               <li key={t.id} className={fresh.has(t.id) ? "is-fresh" : ""}>
                 <button type="button" className="tv-name" onClick={() => onOpen(t)}>
-                  {t.ref != null && <span className="tv-ref">{t.ref}</span>}
+                  <span className="tv-ref">{numbers.get(t.id)}</span>
                   {t.full_name}
                 </button>
               </li>
@@ -268,6 +272,7 @@ function RunCard({
   startOpen,
   onOpen,
   fresh,
+  numbers,
 }: {
   run: TravelRun;
   icon: React.ReactNode;
@@ -275,6 +280,7 @@ function RunCard({
   startOpen: boolean;
   onOpen: (t: Traveller) => void;
   fresh: Set<string>;
+  numbers: Map<string, number>;
 }) {
   const [copied, setCopied] = useState(false);
   const arriving = r.leg === "arrival";
@@ -324,7 +330,7 @@ function RunCard({
           {r.people.map((t) => (
             <li key={t.id} className={`${needs(t) ? "" : "is-self"} ${fresh.has(t.id) ? "is-fresh" : ""}`}>
               <button type="button" className="tv-name" onClick={() => onOpen(t)}>
-                {t.ref != null && <span className="tv-ref">{t.ref}</span>}
+                <span className="tv-ref">{numbers.get(t.id)}</span>
                 {t.full_name}
               </button>
               {t.phone && (
@@ -356,12 +362,12 @@ function RunCard({
 
 // ---------- Everyone ----------
 
-function EveryoneTable({ travellers, onOpen, fresh }: { travellers: Traveller[]; onOpen: (t: Traveller) => void; fresh: Set<string> }) {
+function EveryoneTable({ travellers, onOpen, fresh, numbers }: { travellers: Traveller[]; onOpen: (t: Traveller) => void; fresh: Set<string>; numbers: Map<string, number> }) {
   const [q, setQ] = useState("");
   const s = q.trim().toLowerCase();
-  const list = [...travellers]
-    .filter((t) => !s || [t.full_name, t.phone, t.arrival_flight, t.departure_flight, t.notes, t.ref].join(" ").toLowerCase().includes(s))
-    .sort((a, b) => (a.ref ?? 9999) - (b.ref ?? 9999) || a.full_name.localeCompare(b.full_name));
+  const list = sortTravellers(travellers).filter(
+    (t) => !s || [t.full_name, t.phone, t.arrival_flight, t.departure_flight, t.notes, numbers.get(t.id)].join(" ").toLowerCase().includes(s),
+  );
   const journey = (date: string | null, time: string | null, flight: string | null, place: string | null) =>
     date || time || flight || place ? (
       <>
@@ -405,7 +411,7 @@ function EveryoneTable({ travellers, onOpen, fresh }: { travellers: Traveller[];
                   }
                 }}
               >
-                <td data-label="No.">{t.ref ?? "—"}</td>
+                <td data-label="No.">{numbers.get(t.id)}</td>
                 <td data-label="Name">
                   <strong>{t.full_name}</strong>
                   {t.notes && <small className="st-sub tv-note-clip">{t.notes}</small>}
@@ -432,7 +438,19 @@ function EveryoneTable({ travellers, onOpen, fresh }: { travellers: Traveller[];
 
 // ---------- Add / edit ----------
 
-function TravellerDialog({ delegationId, t, canManage, onClose }: { delegationId: string; t: Traveller | null; canManage: boolean; onClose: () => void }) {
+function TravellerDialog({
+  delegationId,
+  t,
+  number,
+  canManage,
+  onClose,
+}: {
+  delegationId: string;
+  t: Traveller | null;
+  number?: number;
+  canManage: boolean;
+  onClose: () => void;
+}) {
   const { pending, error, run } = useRun();
   const leg = (prefix: "arrival" | "departure", label: string) => (
     <fieldset className="tv-leg wide">
@@ -461,7 +479,7 @@ function TravellerDialog({ delegationId, t, canManage, onClose }: { delegationId
   );
 
   return (
-    <Sheet title={t ? `Edit ${t.full_name}` : "Add a person"} subtitle={t?.ref != null ? `Number ${t.ref} on the group's list` : "Their travel, and what they need from us."} onClose={onClose}>
+    <Sheet title={t ? `Edit ${t.full_name}` : "Add a person"} subtitle={number != null ? `Number ${number} on the group's list` : "Their travel, and what they need from us."} onClose={onClose}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -478,10 +496,6 @@ function TravellerDialog({ delegationId, t, canManage, onClose }: { delegationId
           <div className="field">
             <label htmlFor="tv-phone">Phone</label>
             <input id="tv-phone" name="phone" type="tel" className="input" maxLength={40} defaultValue={t?.phone ?? ""} />
-          </div>
-          <div className="field">
-            <label htmlFor="tv-ref">Number on their list</label>
-            <input id="tv-ref" name="ref" type="number" min={0} inputMode="numeric" className="input" defaultValue={t?.ref ?? ""} />
           </div>
           {leg("arrival", "Arrival")}
           {leg("departure", "Return journey")}

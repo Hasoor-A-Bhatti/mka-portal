@@ -326,7 +326,30 @@ export type Traveller = {
   notes?: string | null;
   /** Who added them: the team, or the AeK on their link. */
   source?: "team" | "aek";
+  created_at?: string;
 };
+
+/**
+ * The list in its settled order: the same order the AeK link shows
+ * (aek_travellers), so both sides agree on who is number 7.
+ */
+export function sortTravellers<T extends Pick<Traveller, "ref" | "full_name" | "created_at">>(list: T[]): T[] {
+  return [...list].sort(
+    (a, b) =>
+      (a.ref ?? Infinity) - (b.ref ?? Infinity) ||
+      (a.created_at ?? "").localeCompare(b.created_at ?? "") ||
+      a.full_name.localeCompare(b.full_name),
+  );
+}
+
+/**
+ * Each person's number on the list: always 1, 2, 3… with no gaps, worked out
+ * here rather than taken from a file or an import (which can skip numbers or
+ * be out of order).
+ */
+export function travellerNumbers(list: Traveller[]): Map<string, number> {
+  return new Map(sortTravellers(list).map((t, i) => [t.id, i + 1]));
+}
 
 export type TravelLeg = "arrival" | "departure";
 

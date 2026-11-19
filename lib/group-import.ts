@@ -156,7 +156,7 @@ async function pdfSheet(file: File): Promise<Sheet> {
       for (const it of content.items) {
         if (!("str" in it) || !it.str.trim()) continue;
         const h = Math.abs(it.transform[3]) || it.height || 10;
-        items.push({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width, h });
+        items.push({ str: unspace(it.str), x: it.transform[4], y: it.transform[5], w: it.width, h });
       }
       // Lines: items at (about) the same height, top of the page first.
       items.sort((a, b) => b.y - a.y || a.x - b.x);
@@ -174,14 +174,16 @@ async function pdfSheet(file: File): Promise<Sheet> {
         for (const it of line) {
           const gap = cur ? it.x - cur.x1 : Infinity;
           if (cur && gap < Math.max(4, it.h * 0.8)) {
-            cur.text += (gap > it.h * 0.12 ? " " : "") + it.str;
+            // A word space is about a quarter of the font size; anything less is
+            // letter-spacing or kerning inside a word (so "2" + "6 Nov" stays "26 Nov").
+            cur.text += (gap > it.h * 0.22 ? " " : "") + it.str;
             cur.x1 = Math.max(cur.x1, it.x + it.w);
           } else {
             cur = { text: it.str, x0: it.x, x1: it.x + it.w };
             row.push(cur);
           }
         }
-        const cells = row.map((c) => ({ ...c, text: clean(c.text) })).filter((c) => c.text);
+        const cells = row.map((c) => ({ ...c, text: rejoinDays(unspace(clean(c.text))) })).filter((c) => c.text);
         if (cells.length) rows.push(cells);
       }
       page.cleanup();
@@ -190,6 +192,27 @@ async function pdfSheet(file: File): Promise<Sheet> {
     await doc.destroy();
   }
   return { rows, grid: false };
+}
+
+/**
+ * Letter-spaced PDF text comes out one character at a time ("2 6 N o v 2 0 2 6").
+ * Put it back together, then split it where words obviously change:
+ * "26 Nov 2026", "Ahmad Khan", "LH 920".
+ */
+function unspace(s: string): string {
+  // Runs of 3+ single characters ("2 6 N o v"), leaving initials like "M A Khan" alone.
+  return s.replace(/(?<!\S)(?:\S ){2,}\S(?!\S)/gu, (run) =>
+    run
+      .replace(/ /g, "")
+      .replace(/(\p{Ll})(\p{Lu})/gu, "$1 $2")
+      .replace(/(\p{L})(\d)/gu, "$1 $2")
+      .replace(/(\d)(\p{L})/gu, "$1 $2"),
+  );
+}
+
+/** A day split in two on the page ("2 6 Nov", "2 6/11/2026") is one number: 26. */
+function rejoinDays(s: string): string {
+  return s.replace(new RegExp(`(?<![\\d\\p{L}])(\\d) (\\d)(?=(?:st|nd|rd|th)?[\\s\\-]*(?:${MONTHS.join("|")})|\\s*[/.\\-]\\s*\\d)`, "giu"), "$1$2");
 }
 
 // ---------- Finding the header ----------
@@ -242,7 +265,7 @@ function above(row: Row, x: number): Cell | null {
   return best;
 }
 
-const looksLikeData = (row: Row) => row.some((c) => findDates(c.text, 2000).length || findFlights(c.text).length);
+const looksLikeData = (row: Row) => row.some((c) => findDates(c.text, { year: 2000, mdy: false }).length || findFlights(c.text).length);
 
 function headerColumns(rows: Row[], i: number): Column[] {
   const row = rows[i];
@@ -291,6 +314,9 @@ const PARTS: Record<string, Part[]> = {
 function assignLegs(cols: Column[]) {
   const used: Record<Leg, Set<Part>> = { arrival: new Set(), departure: new Set() };
   const free = (leg: Leg, parts: Part[]) => parts.some((p) => !used[leg].has(p));
+  // Columns that say which journey they are ("Arrival date") claim it first, so a
+  // plain "Date" column (when the form was filled in, say) can't take its place.
+  for (const c of cols) if (c.leg && c.kind && PARTS[c.kind]) for (const p of PARTS[c.kind]) used[c.leg].add(p);
   let ctx: Leg | null = null;
   for (const c of cols) {
     const parts = c.kind ? PARTS[c.kind] : undefined;
@@ -299,11 +325,9 @@ function assignLegs(cols: Column[]) {
     if (!leg) {
       leg = ctx && free(ctx, parts) ? ctx : free("arrival", parts) ? "arrival" : free("departure", parts) ? "departure" : null;
     }
+    if (!c.leg && leg) for (const p of parts) used[leg].add(p);
     c.leg = leg;
-    if (leg) {
-      ctx = leg;
-      for (const p of parts) used[leg].add(p);
-    }
+    if (leg) ctx = leg;
   }
 }
 
@@ -312,12 +336,36 @@ function assignLegs(cols: Column[]) {
 function extract(sheet: Sheet, year: number): ImportedPerson[] {
   const rows = sheet.rows;
   if (!rows.length) return [];
+  const when: When = { year, mdy: monthFirst(rows) };
   const header = findHeader(rows);
-  const people = header ? fromTable(rows, header, sheet.grid, year) : fromText(rows, year);
+  const people = header ? fromTable(rows, header, sheet.grid, when) : fromText(rows, when);
   return dedupe(people);
 }
 
-function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: boolean, year: number): ImportedPerson[] {
+/**
+ * Whether this file writes dates month first (11/26/2026, American) rather
+ * than day first (26/11/2026). Decided once for the whole file from the dates
+ * that can only be read one way, so 03/08 is read the same way as 26/11 next
+ * to it. Day first unless the file clearly says otherwise.
+ */
+function monthFirst(rows: Row[]): boolean {
+  let dayFirst = 0;
+  let monthFirst = 0;
+  const re = /(?<!\d)(\d{1,2})\s*([/.\-])\s*(\d{1,2})\s*\2\s*(?:\d{4}|\d{2})(?!\d)|(?<!\d)(\d{1,2})\s*\/\s*(\d{1,2})(?!\d)/g;
+  for (const row of rows) {
+    for (const c of row) {
+      for (const m of c.text.matchAll(re)) {
+        const a = +(m[1] ?? m[4]);
+        const b = +(m[3] ?? m[5]);
+        if (a > 12 && b <= 12) dayFirst++;
+        else if (b > 12 && a <= 12) monthFirst++;
+      }
+    }
+  }
+  return monthFirst > dayFirst;
+}
+
+function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: boolean, when: When): ImportedPerson[] {
   const cols = header.cols;
   // The stretch of the page each column owns: halfway to its neighbours.
   const bounds = cols.map((c, j) =>
@@ -369,7 +417,7 @@ function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: bo
       if (!c.leg || !c.kind || !PARTS[c.kind]) continue;
       const v = vals.get(c)?.join(" ");
       if (!v) continue;
-      const got: Partial<Record<Part, string>> = c.kind === "time" ? { time: parseTime(v) } : c.kind === "flight" ? { flight: parseFlight(v) } : c.kind === "place" ? { place: parsePlace(v) } : pull(v, year);
+      const got: Partial<Record<Part, string>> = c.kind === "time" ? { time: parseTime(v) } : c.kind === "flight" ? { flight: parseFlight(v) } : c.kind === "place" ? { place: parsePlace(v) } : pull(v, when);
       for (const part of PARTS[c.kind]) {
         const key = `${c.leg}_${part}` as keyof ImportedPerson;
         const value = got[part];
@@ -387,11 +435,11 @@ function fromTable(rows: Row[], header: { at: number; cols: Column[] }, grid: bo
 const NOT_A_PERSON =
   /\b(page|itinerary|schedule|programme|program|delegation|total|list|travel|details|summary|flight|flights|arrival|arrivals|departure|departures|date|time|name|names|airport|terminal|majlis|khuddam|ahmadiyya|jalsa|ijtema|from|to|via)\b/i;
 
-function fromText(rows: Row[], year: number): ImportedPerson[] {
+function fromText(rows: Row[], when: When): ImportedPerson[] {
   const people: ImportedPerson[] = [];
   for (const row of rows) {
     const line = row.map((c) => c.text).join("   ");
-    const got = pull(line, year);
+    const got = pull(line, when);
     const name = tidyName(line.slice(0, got.firstAt));
     if (!name || /\d/.test(name) || NOT_A_PERSON.test(name)) continue;
     const words = name.split(" ").length;
@@ -457,12 +505,20 @@ function isoDate(y: number, m: number, d: number): string {
 
 type Hit = { at: number; len: number; value: string };
 
-/** UK order (day first) unless that can't be right. */
-function dayMonth(a: number, b: number): [number, number] {
-  return b > 12 && a <= 12 ? [b, a] : [a, b];
+/** The year to assume when a date has none, and whether the file writes dates month first. */
+type When = { year: number; mdy: boolean };
+
+/** [day, month] from "a/b": whichever way can be right; if both can, the file's own order. */
+function dayMonth(a: number, b: number, mdy: boolean): [number, number] {
+  if (b > 12 && a <= 12) return [b, a];
+  if (a > 12 && b <= 12) return [a, b];
+  return mdy ? [b, a] : [a, b];
 }
 
-function findDates(text: string, year: number): Hit[] {
+/** A date with a year that isn't believable (say "1435", which is a time) falls back to the usual year. */
+const withYear = (y: string | undefined, m: number, d: number, when: When) => (y && isoDate(+y, m, d)) || isoDate(when.year, m, d);
+
+function findDates(text: string, when: When): Hit[] {
   const hits: Hit[] = [];
   const scan = (re: RegExp, read: (m: RegExpExecArray) => string) => {
     for (const m of text.matchAll(re)) {
@@ -470,20 +526,26 @@ function findDates(text: string, year: number): Hit[] {
       if (value) hits.push({ at: m.index ?? 0, len: m[0].length, value });
     }
   };
-  scan(/\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/g, (m) => isoDate(+m[1], +m[2], +m[3]));
-  scan(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4}|\d{2})\b(?![:.]\d)/g, (m) => {
-    const [d, mo] = dayMonth(+m[1], +m[2]);
-    return isoDate(+m[3], mo, d);
+  // Digits are matched whole: (?<!\d) and (?!\d) stop "126" being read as "26".
+  // 2026-11-26
+  scan(/(?<!\d)(\d{4})\s*([-/.])\s*(\d{1,2})\s*\2\s*(\d{1,2})(?!\d)/g, (m) => isoDate(+m[1], +m[3], +m[4]));
+  // 26/11/2026, 26.11.26, 26 - 11 - 2026
+  scan(/(?<!\d)(\d{1,2})\s*([/.\-])\s*(\d{1,2})\s*\2\s*(\d{4}|\d{2})(?!\d)(?![:.]\d)/g, (m) => {
+    const [d, mo] = dayMonth(+m[1], +m[3], when.mdy);
+    return isoDate(+m[4], mo, d);
   });
-  scan(/\b(\d{1,2})\/(\d{1,2})\b(?![/.\-]\d)/g, (m) => {
-    const [d, mo] = dayMonth(+m[1], +m[2]);
-    return isoDate(year, mo, d);
+  // 26/11
+  scan(/(?<!\d)(\d{1,2})\s*\/\s*(\d{1,2})(?!\d)(?!\s*[/.\-]\s*\d)/g, (m) => {
+    const [d, mo] = dayMonth(+m[1], +m[2], when.mdy);
+    return isoDate(when.year, mo, d);
   });
-  scan(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?[\\s\\-/.]*(?:of\\s+)?${MON}(?:[\\s\\-/.,]+(\\d{4}|\\d{2})(?![:.]\\d))?\\b`, "gi"), (m) =>
-    isoDate(m[3] ? +m[3] : year, MONTHS.indexOf(m[2].toLowerCase()) + 1, +m[1]),
+  // 26 November 2026, 26th Nov, 26-Nov-26, 26NOV26, Thu26 Nov
+  scan(new RegExp(`(?<!\\d)(\\d{1,2})(?:st|nd|rd|th)?[\\s\\-/.]*(?:of\\s+)?${MON}(?:[\\s\\-/.,']*((?:19|20)\\d{2}|\\d{2})(?![:.]?\\d))?(?![a-z])`, "gi"), (m) =>
+    withYear(m[3], MONTHS.indexOf(m[2].toLowerCase()) + 1, +m[1], when),
   );
-  scan(new RegExp(`\\b${MON}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`, "gi"), (m) =>
-    isoDate(m[3] ? +m[3] : year, MONTHS.indexOf(m[1].toLowerCase()) + 1, +m[2]),
+  // November 26th, Nov 26, 2026
+  scan(new RegExp(`(?<![a-z])${MON}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*'?((?:19|20)\\d{2}))?(?!\\d)`, "gi"), (m) =>
+    withYear(m[3], MONTHS.indexOf(m[1].toLowerCase()) + 1, +m[2], when),
   );
   return nonOverlapping(hits);
 }
@@ -582,8 +644,8 @@ function nonOverlapping(hits: Hit[]): Hit[] {
 const blankOut = (text: string, hits: Hit[]) => hits.reduce((t, h) => t.slice(0, h.at) + " ".repeat(h.len) + t.slice(h.at + h.len), text);
 
 /** Everything travel-related in a bit of free text, in the order it appears. */
-function pull(text: string, year: number) {
-  const dates = findDates(text, year);
+function pull(text: string, when: When) {
+  const dates = findDates(text, when);
   let rest = blankOut(text, dates);
   const places = findPlaces(rest);
   rest = blankOut(rest, places);

@@ -374,7 +374,6 @@ export async function saveTraveller(id: string, travellerId: string | null, fd: 
     if (arrival && departure && departure < arrival) throw new Invalid("Departure is before arrival.");
     const payload = {
       delegation_id: id,
-      ref: whole(fd, "ref", "Number on the list"),
       full_name: text(fd, "full_name", "Name", { required: true, max: 120 }),
       phone: text(fd, "phone", "Phone", { max: 40 }),
       arrival_date: arrival,
@@ -393,7 +392,6 @@ export async function saveTraveller(id: string, travellerId: string | null, fd: 
     const res = travellerId
       ? await supabase.from("delegation_travellers").update(payload).eq("id", travellerId).eq("delegation_id", id).select("id")
       : await supabase.from("delegation_travellers").insert(payload).select("id");
-    if (res.error?.code === "23505") return { error: "Someone else on the list already has that number." };
     if (res.error && ["42P01", "PGRST205"].includes(res.error.code ?? "")) {
       return { error: "Travellers aren't set up yet: run supabase/migrations/0018_delegation_travellers.sql in Supabase." };
     }
