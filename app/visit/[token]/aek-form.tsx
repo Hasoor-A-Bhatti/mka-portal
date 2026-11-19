@@ -18,7 +18,7 @@ import {
   type Traveller,
 } from "@/lib/delegations";
 import { registerAekFile, submitAek, submitGroup } from "./actions";
-import { GroupEditor, emptyGroupRow, toGroupRow, type GroupRow } from "./group-form";
+import { GroupEditor, toGroupRow, type GroupRow } from "./group-form";
 
 export type AekView = {
   delegation: {
@@ -49,6 +49,7 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
   const router = useRouter();
   const d = view.delegation;
   const u = view.update;
+  const formRef = useRef<HTMLFormElement>(null);
   const [saving, startSave] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,13 +82,32 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
 
   const [activities, setActivities] = useState<AekActivities>(u?.activities ?? {});
   // The group: everyone here goes onto the delegation's Travellers list when the form is sent.
-  const [group, setGroup] = useState<GroupRow[]>(() => (travellers.length ? travellers.map(toGroupRow) : [emptyGroupRow()]));
+  const [group, setGroup] = useState<GroupRow[]>(() => travellers.map(toGroupRow));
   const [removed, setRemoved] = useState<string[]>([]);
   const [meals, setMeals] = useState<MealRequests>(u?.meal_requests ?? {});
   // Days they haven't answered yet start with every meal ticked.
   const wanted = (day: string): MealKey[] => meals[day] ?? MEALS.map((m) => m.key);
 
   const touched = () => setSaved(false);
+
+  // After a list is dropped in: fill the group's own dates and size above, where they're still blank.
+  const fillFromGroup = (rows: GroupRow[]) => {
+    const form = formRef.current;
+    if (!form) return;
+    const fill = (name: string, value: string | undefined) => {
+      const el = form.elements.namedItem(name) as HTMLInputElement | null;
+      if (!el || el.value || !value) return false;
+      el.value = value;
+      return true;
+    };
+    const arr = rows.map((r) => r.arrival_date).filter(Boolean).sort();
+    const dep = rows.map((r) => r.departure_date).filter(Boolean).sort();
+    const next = { ...dates };
+    if (fill("arrival_date", arr[0])) next.arrival_date = arr[0];
+    if (fill("departure_date", dep[dep.length - 1])) next.departure_date = dep[dep.length - 1];
+    setDates(next);
+    fill("members", String(rows.filter((r) => r.full_name.trim()).length));
+  };
 
   const upload = async (files: File[]) => {
     setUploadError(null);
@@ -121,6 +141,7 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
   return (
     <>
       <form
+        ref={formRef}
         className="visit-card glass glass-strong visit-form"
         onSubmit={(e) => {
           e.preventDefault();
@@ -140,7 +161,7 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
               if (g.error) return setError(g.error);
               // The list as saved, with ids for anyone new (so sending again doesn't add them twice).
               const people = (g.people ?? []) as Traveller[];
-              setGroup(people.length ? people.map(toGroupRow) : [emptyGroupRow()]);
+              setGroup(people.map(toGroupRow));
               setRemoved([]);
             }
             setSaved(true);
@@ -285,16 +306,15 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
         {groupReady && (
           <GroupEditor
             rows={group}
+            year={Number((dates.arrival_date || new Date().toISOString()).slice(0, 4))}
+            onImported={fillFromGroup}
             onChange={(rows) => {
               setGroup(rows);
               touched();
             }}
             onRemove={(row) => {
               if (row.id) setRemoved((r) => [...r, row.id!]);
-              setGroup((rows) => {
-                const left = rows.filter((x) => x.key !== row.key);
-                return left.length ? left : [emptyGroupRow()];
-              });
+              setGroup((rows) => rows.filter((x) => x.key !== row.key));
               touched();
             }}
           />

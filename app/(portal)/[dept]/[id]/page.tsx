@@ -40,6 +40,7 @@ import { MealsPanel } from "@/components/delegations/meals-panel";
 import { MulaqatPanel } from "@/components/delegations/mulaqat-panel";
 import { TravellersPanel } from "@/components/delegations/travellers-panel";
 import { EditAccess } from "@/components/edit-access";
+import { LiveRefresh } from "@/components/live-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -298,6 +299,9 @@ export default async function DelegationPage({ params, searchParams }: Props) {
           Supabase?
         </p>
       )}
+
+      {/* The AeK's form and group list land here as soon as they're sent. */}
+      <LiveRefresh channel={`delegation-${id}`} tables={["delegation_travellers", "delegation_aek_updates"]} filter={`delegation_id=eq.${id}`} />
 
       <div className="tab-body rise" style={vars({ "--i": "3" })} key={tab}>
         {tab === "info" && <InfoPanel delegation={d} files={files} summary={summary} canManage={canManage} aek={aek} region={region} />}
