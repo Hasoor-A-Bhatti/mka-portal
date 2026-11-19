@@ -79,10 +79,8 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
   // The group: everyone here goes onto the delegation's Travellers list when the form is sent.
   const [group, setGroup] = useState<GroupRow[]>(() => travellers.map(toGroupRow));
 
-  // Groups come on several flights, so there's no single arrival to ask for: the
-  // stay runs from the first person in to the last person out, straight from the
-  // list. The Activities and Food tables follow it as the list changes. Before
-  // anyone has dates, what they sent before (or the team's dates) is used.
+  // The first flight in and the last flight out, from the group's list: sent as the
+  // group's journey for the team's Info tab (groups come on several flights).
   const span = useMemo(() => {
     const named = group.filter((r) => r.full_name.trim());
     const first = named.filter((r) => r.arrival_date).sort((a, b) => `${a.arrival_date}${a.arrival_time}`.localeCompare(`${b.arrival_date}${b.arrival_time}`))[0];
@@ -93,7 +91,9 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
     arrival_date: span.first?.arrival_date || v.arrival_date,
     departure_date: span.last?.departure_date || v.departure_date,
   };
-  const days = stayDays({ arrival_date: dates.arrival_date || null, departure_date: dates.departure_date || null });
+  // Activities and Food run for the stay as planned with us (the delegation's
+  // dates, kept in step with the Google Calendar), not the guests' own flights.
+  const days = stayDays({ arrival_date: d.arrival_date, departure_date: d.departure_date });
   const [removed, setRemoved] = useState<string[]>([]);
   const [meals, setMeals] = useState<MealRequests>(u?.meal_requests ?? {});
   // Days they haven't answered yet start with every meal ticked.
@@ -234,12 +234,6 @@ export function AekForm({ token, view, travellers, groupReady }: { token: string
             <span className="optional-tag">Optional</span>
           </legend>
           <p className="visit-help">What are you planning to do each day? A few words is plenty, e.g. &ldquo;Visit Baitul Futuh&rdquo; or &ldquo;Free time&rdquo;.</p>
-          {days.length > 0 && (span.first || span.last) && (
-            <p className="muted-note visit-span">
-              From {span.first ? `${fmtDay(dates.arrival_date, { weekday: "short", day: "numeric", month: "short" })} (first arrival)` : fmtDay(dates.arrival_date, { weekday: "short", day: "numeric", month: "short" })} to{" "}
-              {span.last ? `${fmtDay(dates.departure_date, { weekday: "short", day: "numeric", month: "short" })} (last return)` : fmtDay(dates.departure_date, { weekday: "short", day: "numeric", month: "short" })}, from your group&apos;s list.
-            </p>
-          )}
           {days.length === 0 ? (
             <NeedDates />
           ) : (
@@ -406,7 +400,11 @@ function DayLabel({ day, index, count }: { day: string; index: number; count: nu
 }
 
 function NeedDates() {
-  return <p className="muted-note visit-need-dates">Add arrival and return dates for your group above, and each day of your stay will appear here.</p>;
+  return (
+    <p className="muted-note visit-need-dates">
+      Each day of your stay will appear here once the MKA Delegations team has confirmed your visit dates.
+    </p>
+  );
 }
 
 function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }) {
