@@ -379,3 +379,55 @@ export function travelRuns(list: Traveller[], leg: TravelLeg): TravelRun[] {
 
 /** "09:35–09:45" or "09:45". */
 export const runTime = (r: Pick<TravelRun, "from" | "to">) => (r.from && r.to && r.from !== r.to ? `${r.from}–${r.to}` : r.from ?? "Time not given");
+
+// ---------- Recommended vehicles ----------
+
+export const CAR_SEATS = 4;
+export const VAN_SIZES = [14, 9] as const;
+
+/** The vehicles to hire for one pickup or drop-off run. */
+export type VehiclePlan = { people: number; cars: number; van14: number; van9: number; seats: number };
+
+/**
+ * What to hire for `people` travelling together (one flight's pickup or drop-off).
+ *
+ *   4 or fewer → a private car.
+ *   5 or more  → vans (9 or 14 seats): first the fewest vans that fit everyone,
+ *                then, among those, the fewest empty seats. Since a 14-seater
+ *                costs more than a 9-seater, fewer empty seats also means the
+ *                cheaper mix (as many 9-seaters as will do).
+ *
+ *   e.g. 10 → 1 × 14 · 15 → 2 × 9 · 23 → 14 + 9 · 27 → 2 × 14 · 29 → 14 + 2 × 9
+ */
+export function recommendVehicles(people: number): VehiclePlan {
+  const n = Math.max(0, Math.floor(people));
+  if (n === 0) return { people: 0, cars: 0, van14: 0, van9: 0, seats: 0 };
+  if (n <= CAR_SEATS) return { people: n, cars: 1, van14: 0, van9: 0, seats: CAR_SEATS };
+  for (let vans = Math.ceil(n / 14); ; vans++) {
+    // Most 9-seaters first: the first mix that fits has the fewest empty seats.
+    for (let van9 = vans; van9 >= 0; van9--) {
+      const van14 = vans - van9;
+      const seats = van14 * 14 + van9 * 9;
+      if (seats >= n) return { people: n, cars: 0, van14, van9, seats };
+    }
+  }
+}
+
+/** Plans added together, e.g. every arrival run of a delegation. */
+export function addVehicles(plans: VehiclePlan[]): VehiclePlan {
+  return plans.reduce(
+    (a, p) => ({ people: a.people + p.people, cars: a.cars + p.cars, van14: a.van14 + p.van14, van9: a.van9 + p.van9, seats: a.seats + p.seats }),
+    { people: 0, cars: 0, van14: 0, van9: 0, seats: 0 },
+  );
+}
+
+/** "1 × 14-seater + 1 × 9-seater", "Private car", "2 private cars". */
+export function vehicleParts(p: VehiclePlan): { kind: "car" | "van14" | "van9"; label: string }[] {
+  const out: { kind: "car" | "van14" | "van9"; label: string }[] = [];
+  if (p.van14) out.push({ kind: "van14", label: `${p.van14} × 14-seater` });
+  if (p.van9) out.push({ kind: "van9", label: `${p.van9} × 9-seater` });
+  if (p.cars) out.push({ kind: "car", label: p.cars === 1 ? "Private car" : `${p.cars} private cars` });
+  return out;
+}
+
+export const vehicleText = (p: VehiclePlan) => vehicleParts(p).map((x) => x.label).join(" + ") || "None needed";

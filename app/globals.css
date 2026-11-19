@@ -11781,3 +11781,96 @@ a.jd-cell:hover {
     animation: none;
   }
 }
+
+/* Travellers tab: recommended transport vehicles */
+.stats .tv-veh {
+  grid-column: span 2;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.tv-veh-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tv-veh-title svg {
+  color: var(--accent);
+}
+
+.tv-veh-row {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat .tv-veh-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.stat .tv-veh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tv-veh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tv-veh-chip.is-car {
+  background: var(--gold-pale);
+  color: var(--gold-text);
+}
+
+.tv-veh-runs,
+.tv-veh-none {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tv-veh-none {
+  grid-column: span 2;
+}
+
+.tv-count small.tv-veh-tag {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .stats .tv-veh {
+    grid-column: 1 / -1;
+  }
+
+  .tv-veh-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .stat .tv-veh-chips {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

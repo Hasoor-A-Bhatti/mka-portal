@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronsUpDown, Copy, PlaneLanding, PlaneTakeoff, Plus, Radio, Search } from "lucide-react";
+import { Bus, Car, Check, ChevronsUpDown, Copy, PlaneLanding, PlaneTakeoff, Plus, Radio, Search } from "lucide-react";
 import {
+  addVehicles,
   fmtDay,
   hhmm,
+  recommendVehicles,
+  vehicleParts,
+  vehicleText,
   legUnknown,
   runTime,
   shortDay,
@@ -13,6 +17,7 @@ import {
   type Traveller,
   type TravelLeg,
   type TravelRun,
+  type VehiclePlan,
 } from "@/lib/delegations";
 import { deleteTraveller, saveTraveller } from "@/app/(portal)/[dept]/[id]/actions";
 import { FormError, Sheet, useRun } from "@/components/fleet/ui";
@@ -47,6 +52,7 @@ export function TravellersPanel({ delegationId, travellers, canManage }: { deleg
           <strong>{dropoffs}</strong>
           <span>airport drop-off{dropoffs === 1 ? "" : "s"}</span>
         </div>
+        <VehiclesStat travellers={travellers} />
       </section>
 
       <section className="panel glass">
@@ -118,6 +124,59 @@ function useFresh(travellers: Traveller[]): Set<string> {
     return () => clearTimeout(timer);
   }, [travellers]);
   return fresh;
+}
+
+// ---------- Recommended vehicles ----------
+
+/**
+ * What to hire, worked out flight by flight: everyone we're meeting off one
+ * flight (or taking to one) travels together. Totals are per journey, so a
+ * van booked for two different flights counts twice.
+ */
+function VehiclesStat({ travellers }: { travellers: Traveller[] }) {
+  const legs = useMemo(
+    () =>
+      (["arrival", "departure"] as const).map((leg) => {
+        const runs = travelRuns(travellers, leg).filter((r) => r.needUs > 0);
+        return { leg, runs: runs.length, plan: addVehicles(runs.map((r) => recommendVehicles(r.needUs))) };
+      }),
+    [travellers],
+  );
+
+  return (
+    <div className="stat glass tv-veh" title="Worked out per flight: a private car for 4 or fewer; otherwise the fewest 9- and 14-seater vans, with the fewest empty seats.">
+      <p className="tv-veh-title">
+        <Bus size={15} /> Recommended transport vehicles
+      </p>
+      {legs.map(({ leg, runs, plan }) => (
+        <div key={leg} className="tv-veh-row">
+          <span className="tv-veh-leg">
+            {leg === "arrival" ? <PlaneLanding size={14} /> : <PlaneTakeoff size={14} />} {leg === "arrival" ? "Arrivals" : "Departures"}
+          </span>
+          <VehicleChips plan={plan} />
+          {runs > 0 && (
+            <small className="tv-veh-runs">
+              {runs} flight{runs === 1 ? "" : "s"}
+            </small>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VehicleChips({ plan }: { plan: VehiclePlan }) {
+  const parts = vehicleParts(plan);
+  if (!parts.length) return <em className="tv-veh-none">No flights to meet yet</em>;
+  return (
+    <span className="tv-veh-chips">
+      {parts.map((p) => (
+        <b key={p.kind} className={`tv-veh-chip is-${p.kind}`}>
+          {p.kind === "car" ? <Car size={13} /> : <Bus size={13} />} {p.label}
+        </b>
+      ))}
+    </span>
+  );
 }
 
 // ---------- Arrivals / departures ----------
@@ -258,6 +317,7 @@ function RunCard({
             <small className={r.needUs ? "" : "is-none"}>
               {r.needUs ? `${r.needUs} ${need}${r.needUs === 1 ? "" : "s"}` : `no ${need}s`}
             </small>
+            {r.needUs > 0 && <small className="tv-veh-tag">{vehicleText(recommendVehicles(r.needUs))}</small>}
           </span>
         </summary>
         <ul className="tv-people">
